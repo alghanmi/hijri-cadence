@@ -1,0 +1,53 @@
+name: Notify deploy (manual)
+
+# Manual escape hatch for firing a deploy-release dispatch.
+#
+# Why this isn't on `release: [published]`: when release-please cuts a
+# release using GITHUB_TOKEN, GitHub's anti-recursion safeguard suppresses
+# the downstream `release` event. The auto-dispatch is wired directly
+# inside release-please.yml.
+#
+# This workflow stays around as a manual entrypoint for:
+#   - re-running a stuck deploy
+#   - deploying an older tag
+#   - testing the dispatch chain without cutting a new release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to deploy (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: Dispatch deploy-release event
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Send repository_dispatch
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          gh api repos/alghanmi/hijri-cadence-deploy/dispatches \
+            -f event_type=deploy-release \
+            -f "client_payload[version]=${version}" \
+            -f "client_payload[sha]=${SHA}" \
+            -f "client_payload[actor]=${ACTOR}" \
+            -f "client_payload[ref]=${TAG}"
+          {
+            echo "### Dispatched deploy-release"
+            echo "- version: \`${version}\`"
+            echo "- ref: \`${TAG}\`"
+            echo "- target: alghanmi/hijri-cadence-deploy"
+          } >> "$GITHUB_STEP_SUMMARY"

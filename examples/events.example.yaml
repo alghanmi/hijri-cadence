@@ -1,0 +1,29 @@
+# events.example.yaml
+#
+# Fictitious example used by the ICS-generation unit tests AND by
+# `pnpm generate:local` / `make ical-local`. Copy this file, replace with
+# real events, and keep the real copy OUT of this repo — it belongs in
+# the private deploy companion (hijri-cadence-deploy/config/people/*.yaml).
+
+# Which HijriCalendarProvider to use. v1 ships only "umm_al_qura".
+calendar: umm_al_qura
+
+# Range of Hijri years to materialize occurrences for, centered on today.
+# The Worker regenerates this window on every request, so it just needs to
+# comfortably outlive Google Calendar's ~12-24h webcal poll interval.
+occurrence_range:
+  years_back: 3
+  years_forward: 6
+
+events:
+  - name: "Layla's Hijri Birthday"
+    hijri_day: 7
+    hijri_month: 10 # Shawwal
+    hijri_year: 1406 # optional — enables the age suffix
+    reminder_days_before: [1, 7]
+
+  - name: 'Family Anniversary'
+    hijri_day: 5
+    hijri_month: 12
+    reminder_days_before: [] # no reminders
+    # no hijri_year → title never shows an age suffix

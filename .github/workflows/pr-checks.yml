@@ -1,0 +1,49 @@
+name: PR checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Typecheck, lint, test, audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm --filter @hijri-cadence/worker typecheck
+
+      - name: Lint
+        run: pnpm --filter @hijri-cadence/worker lint
+
+      - name: Test (Tier 1 only — no network)
+        run: pnpm --filter @hijri-cadence/worker test
+
+      # npm registry retired /security/audits/quick + /security/advisories/bulk
+      # returns 410 for most pnpm builds. Keeping the step but marking
+      # continue-on-error so a future pnpm release that hits the new endpoint
+      # starts feeding CI without blocking PRs in the meantime. Dependabot
+      # (vulnerability-alerts + automated-security-fixes) is the primary
+      # signal.
+      - name: Audit dependencies
+        continue-on-error: true
+        run: pnpm audit --audit-level=high

@@ -1,0 +1,9 @@
+# Copy to `.dev.vars` (gitignored) for local `wrangler dev`. Both plain vars
+# and secrets are loaded from the same file by wrangler dev.
+#
+# In production these are provisioned by Terraform (plain_text) — this file
+# only exists to unblock the local-dev path.
+
+INSTANCE_ID=local
+LOG_LEVEL=debug
+HEARTBEAT_URL=

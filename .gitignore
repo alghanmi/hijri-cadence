@@ -1,0 +1,58 @@
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+.tsbuildinfo
+*.tsbuildinfo
+
+# Coverage
+coverage/
+.nyc_output/
+
+# ── Wrangler / Cloudflare Workers ─────────────────────────────────────────────
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# ── Terraform ─────────────────────────────────────────────────────────────────
+.terraform/
+.terraform.lock.hcl
+*.tfstate*
+crash.log
+crash.*.log
+
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+backend.hcl
+!backend.hcl.example
+
+*.tfplan
+
+# ── Editors / OS ──────────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Env ───────────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Claude Code local state ───────────────────────────────────────────────────
+.claude/
+
+# ── Local generated ICS output ────────────────────────────────────────────────
+*.ics
+!examples/*.ics

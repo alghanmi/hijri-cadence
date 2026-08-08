@@ -1,0 +1,38 @@
+name = "hijri-cadence"
+main = "src/index.ts"
+compatibility_date = "2025-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Route + custom domain are managed by Terraform (see the module in
+# infrastructure/terraform/_modules/hijri-cadence-environment/dns.tf).
+# `workers_dev = false` prevents the workers.dev fallback URL from being
+# published — production traffic goes through the custom domain only.
+workers_dev = false
+
+# ── Build-time string substitution ────────────────────────────────────────────
+# wrangler replaces bare identifiers in the bundle at build time. The deploy
+# workflow overrides both on production deploys:
+#   --define VERSION:'"X.Y.Z"'
+#   --define CONFIGS_JSON:'"{...}"'
+# The values here are the defaults for `wrangler dev` and the test bundle.
+# See src/globals.d.ts for the matching TypeScript declarations.
+[define]
+VERSION = "\"0.0.0-dev\""
+CONFIGS_JSON = "\"{}\""
+
+# ── Cron trigger ──────────────────────────────────────────────────────────────
+# Default cadence. Terraform manages the production cron via `cron_schedule`
+# on the module. Keep this value in sync with the module's default to avoid
+# drift — `wrangler deploy` will set crons from this file on each push.
+[triggers]
+crons = ["0 */6 * * *"]
+
+# ── Non-secret vars ───────────────────────────────────────────────────────────
+# Vars are owned by Terraform in production. The deploy workflow runs
+# `wrangler deploy --keep-vars` so wrangler never clobbers them. For local
+# `wrangler dev`, put placeholder values in `.dev.vars` alongside any
+# secrets — wrangler dev loads vars and secrets identically from that file.
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+[observability]
+enabled = true

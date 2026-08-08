@@ -1,0 +1,59 @@
+name: release-please
+
+# Opens (and maintains) a release PR aggregating Conventional Commits since
+# the last tag. Merging that PR cuts the tag + GitHub release + CHANGELOG
+# entry, and bumps the version in package.json + worker/package.json (the
+# latter via `extra-files` in release-please-config.json).
+#
+# When release-please cuts a release in the same run, this workflow ALSO
+# fires the deploy-release `repository_dispatch` event at hijri-cadence-deploy.
+# Chaining the dispatch inside this workflow (rather than via a separate
+# `on: release: [published]` workflow) is the documented workaround for
+# GitHub's anti-recursion safeguard: releases created by GITHUB_TOKEN don't
+# fire downstream workflow events.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    # `environment: production` is needed for the dispatch step to see
+    # DEPLOY_DISPATCH_TOKEN — the secret lives at the environment scope,
+    # not the repo scope, so a job without an environment binding resolves
+    # it to an empty string.
+    environment: production
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch deploy-release event to hijri-cadence-deploy
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+          SHA: ${{ steps.release.outputs.sha }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          gh api repos/alghanmi/hijri-cadence-deploy/dispatches \
+            -f event_type=deploy-release \
+            -f "client_payload[version]=${VERSION}" \
+            -f "client_payload[sha]=${SHA}" \
+            -f "client_payload[actor]=${ACTOR}" \
+            -f "client_payload[ref]=${TAG}"
+          {
+            echo "### Dispatched deploy-release"
+            echo "- version: \`${VERSION}\`"
+            echo "- ref: \`${TAG}\`"
+            echo "- sha: \`${SHA}\`"
+            echo "- target: alghanmi/hijri-cadence-deploy"
+          } >> "$GITHUB_STEP_SUMMARY"
