@@ -77,11 +77,17 @@ At deploy time, the deploy workflow:
    uses at runtime
 3. Emits a JSON object keyed by token:
    `{ "<token1>": { ...config1 }, "<token2>": { ...config2 } }`
-4. Passes it to wrangler via `--define CONFIGS_JSON:'"<json>"'`
+4. Passes it to wrangler as a JS string literal:
+   `--define CONFIGS_JSON:"$(printf '%s' "$CONFIGS_JSON" | jq -Rs .)"`.
+   The `jq -Rs .` wraps the raw JSON in a properly-escaped string literal
+   (e.g. `{"foo":"bar"}` → `"{\"foo\":\"bar\"}"`) so the substituted
+   identifier compiles to valid JavaScript. A naive
+   `--define CONFIGS_JSON:'"<raw-json>"'` would break — the raw JSON's
+   inner `"` collide with the outer quotes.
 
 Wrangler substitutes the identifier `CONFIGS_JSON` in the bundle at
-build time. At request time, `feed-handler.ts` parses it once (cold
-start), then looks up by token on each hit.
+build time. At request time, `feed-handler.ts` `JSON.parse`s the string
+once (cold start), then looks up by token on each hit.
 
 Trade-offs:
 
@@ -93,6 +99,43 @@ Trade-offs:
   backlog in the design doc).
 - Same substitution trick is used for `VERSION` — see
   [`worker/src/globals.d.ts`](../worker/src/globals.d.ts).
+
+## Scale limits
+
+The build-time-bundling design puts a hard ceiling on the number of
+per-family configs a single Worker instance can serve. Cloudflare's
+current Worker script size limits (post-2024 increases):
+
+- **Free plan:** 3 MiB compressed
+- **Paid plan:** 10 MiB compressed
+
+At ~5 KB per family YAML (a dozen events, reasonable name lengths),
+that's roughly:
+
+- ~600 families on the free plan
+- ~2000 families on the paid plan
+
+Adequate by orders of magnitude for personal / family / small-community
+scale. A scale beyond that would require moving CONFIGS_JSON out of the
+bundle — the obvious next step is KV or D1, which decouples config
+updates from code deploys entirely. That is a v2+ concern; the design
+doc's non-goals section explicitly rejects it for v1.
+
+## A note on timezones
+
+VEVENTs are emitted as `VALUE=DATE` (all-day events), which per RFC 5545
+"float" in the calendar client's local timezone. This is the correct
+semantic for the primary use cases — birthdays and anniversaries — since
+a person's Hijri birthday in a given Gregorian year is the same calendar
+day everywhere on Earth, and the client should display it as their local
+day.
+
+For religious observances that ARE tied to a specific timezone (e.g. a
+sighting-anchored Ramadan start), floating dates would be misleading —
+but the design's non-goals section already rejects sighting-based date
+calculation. The Umm al-Qura calendar this Worker uses is a tabular
+authority appropriate for scheduling, not for determining religious
+observance start times.
 
 ## Observability
 
