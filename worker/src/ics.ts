@@ -114,9 +114,17 @@ function formatIcsDateTime(date: Date): string {
   return `${y}${m}${d}T${hh}${mm}${ss}Z`;
 }
 
-/** RFC 5545 §3.3.11 TEXT escaping. */
+/** RFC 5545 §3.3.11 TEXT escaping.
+ *
+ * Strips bare `\r` first — RFC 5545 has no escape sequence for a raw
+ * carriage return in a TEXT value, and leaving it in would let a
+ * `\r\nBEGIN:VEVENT` sequence in an event name break out of the current
+ * VEVENT block. Config is operator-trusted, but the cost of this
+ * defense-in-depth is one regex.
+ */
 function escapeText(input: string): string {
   return input
+    .replace(/\r/g, '')
     .replace(/\\/g, '\\\\')
     .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
@@ -137,10 +145,20 @@ function foldLine(line: string): string {
   let start = 0;
   while (start < bytes.length) {
     const end = Math.min(start + (out.length === 0 ? maxOctets : maxOctets - 1), bytes.length);
-    // Back off if we'd split a UTF-8 continuation byte
+    // If `safeEnd` lands mid-UTF-8-character, retreat until it sits on a
+    // boundary. Continuation bytes match `10xxxxxx` (top two bits = 10);
+    // start bytes and single-byte characters do not. We check the byte AT
+    // `safeEnd` (the first byte of the next chunk) — if it's a continuation
+    // byte, we split a multi-byte sequence and must back up. Checking
+    // `bytes[safeEnd - 1]` (the previous version of this code) was wrong:
+    // a start byte at safeEnd-1 matches `11xxxxxx`, not `10xxxxxx`, so the
+    // loop would exit immediately and the start byte would land in the
+    // current chunk without its continuation bytes — TextDecoder then
+    // substitutes `�` for both halves. Very common with Arabic /
+    // Urdu / any non-ASCII event name.
     let safeEnd = end;
-    while (safeEnd > start) {
-      const byte = bytes[safeEnd - 1];
+    while (safeEnd > start && safeEnd < bytes.length) {
+      const byte = bytes[safeEnd];
       if (byte === undefined || (byte & 0xc0) !== 0x80) break;
       safeEnd--;
     }

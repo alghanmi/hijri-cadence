@@ -50,6 +50,15 @@ function materializeOccurrence(
   event: EventConfig,
   hijriYear: number,
 ): Occurrence | null {
+  // Skip years before the event's own hijri_year — a birthday for someone
+  // born in 1447 doesn't have occurrences in 1445 or 1446, and materializing
+  // them would emit VEVENTs with negative ages (e.g. "Alice's Hijri
+  // Birthday (-2)"). Events without a hijri_year (undated anniversaries,
+  // observances) skip this guard entirely.
+  if (event.hijri_year !== undefined && hijriYear < event.hijri_year) {
+    return null;
+  }
+
   let date: Date;
   try {
     date = provider.toGregorian(hijriYear, event.hijri_month, event.hijri_day);
