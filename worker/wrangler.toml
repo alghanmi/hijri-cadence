@@ -13,7 +13,10 @@ workers_dev = false
 # wrangler replaces bare identifiers in the bundle at build time. The deploy
 # workflow overrides both on production deploys:
 #   --define VERSION:'"X.Y.Z"'
-#   --define CONFIGS_JSON:'"{...}"'
+#   --define CONFIGS_JSON:"$(printf '%s' "$CONFIGS_JSON" | jq -Rs .)"
+# The `jq -Rs .` wraps the raw JSON payload in a valid JS string literal.
+# A naive `--define CONFIGS_JSON:'"<raw json>"'` would break because the
+# JSON's own double quotes collide with the outer wrapping quotes.
 # The values here are the defaults for `wrangler dev` and the test bundle.
 # See src/globals.d.ts for the matching TypeScript declarations.
 [define]

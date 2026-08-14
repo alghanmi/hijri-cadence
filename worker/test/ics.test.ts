@@ -69,3 +69,73 @@ describe('generateIcs — RFC 5545 shape', () => {
     expect(yearMarkers.length).toBe(eventCount);
   });
 });
+
+describe('generateIcs — UTF-8 line folding regression', () => {
+  // Arabic name long enough to force a fold at 75 octets. Each Arabic
+  // letter encodes to 2 UTF-8 bytes; SUMMARY: prefix + escaping mean a
+  // long-enough name lands the fold boundary mid-character.
+  const ARABIC = 'ليلى الغانمي عيد ميلاد هجري كبير للاختبار';
+  const YAML = `calendar: umm_al_qura
+occurrence_range:
+  years_back: 0
+  years_forward: 1
+events:
+  - name: "${ARABIC}"
+    hijri_day: 7
+    hijri_month: 10
+    reminder_days_before: []
+`;
+
+  it('does not corrupt multi-byte characters when folding lines >75 octets', () => {
+    const config = parseConfig(YAML);
+    const occurrences = generateOccurrences(config, NOW);
+    const ics = generateIcs(occurrences, { now: NOW });
+
+    // No U+FFFD replacement characters — that would signal TextDecoder
+    // failed on a truncated multi-byte sequence.
+    expect(ics).not.toContain('�');
+    // The full Arabic name must appear intact somewhere in the output
+    // (possibly with a fold-injected " \r\n " sequence, which is stripped
+    // when re-joining continuation lines).
+    const unfolded = ics.replace(/\r\n /g, '');
+    expect(unfolded).toContain(ARABIC);
+  });
+});
+
+describe('escapeText — control characters', () => {
+  it('strips \\r injection from event names', () => {
+    const YAML = `calendar: umm_al_qura
+occurrence_range:
+  years_back: 0
+  years_forward: 0
+events:
+  - name: "Innocuous\\r\\nBEGIN:VEVENT\\r\\nSUMMARY:INJECTED\\r\\nEND:VEVENT"
+    hijri_day: 1
+    hijri_month: 1
+    reminder_days_before: []
+`;
+    const config = parseConfig(YAML);
+    const occurrences = generateOccurrences(config, NOW);
+    const ics = generateIcs(occurrences, { now: NOW });
+
+    // Split into logical lines (unfold continuation lines first — RFC 5545
+    // continuations are marked by a leading space after CRLF).
+    const logicalLines = ics.replace(/\r\n /g, '').split('\r\n');
+
+    // Only one actual VEVENT wrapper — the injected structure must NOT
+    // create a second, real VEVENT block. Check line-anchored: a line
+    // whose full content is BEGIN:VEVENT / END:VEVENT (the substring can
+    // appear as part of an escaped SUMMARY value, which is inert).
+    const beginLines = logicalLines.filter((l) => l === 'BEGIN:VEVENT');
+    const endLines = logicalLines.filter((l) => l === 'END:VEVENT');
+    expect(beginLines.length).toBe(1);
+    expect(endLines.length).toBe(1);
+
+    // There must be exactly one SUMMARY property line, and it must not
+    // contain a raw CR (raw CR would let the string break out into a real
+    // continuation of the VEVENT block).
+    const summaryLines = logicalLines.filter((l) => l.startsWith('SUMMARY:'));
+    expect(summaryLines.length).toBe(1);
+    expect(summaryLines[0]).not.toContain('\r');
+  });
+});

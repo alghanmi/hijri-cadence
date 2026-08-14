@@ -10,7 +10,15 @@
 //     A JSON.stringify()-safe string, itself the JSON-encoded form of
 //     `Record<token, RawConfig>`. Produced at deploy time by the deploy
 //     companion's workflow reading every config/people/*.yaml file, then
-//     passed via `wrangler --define CONFIGS_JSON:'"..."'`.
+//     passed via wrangler:
+//       --define CONFIGS_JSON:"$(printf '%s' "$CONFIGS_JSON" | jq -Rs .)"
+//     The `jq -Rs .` wraps the raw JSON payload in a properly-escaped JS
+//     string literal (e.g. `{"foo":"bar"}` → `"{\"foo\":\"bar\"}"`) so
+//     the substituted bundle contains a valid JS string, which
+//     feed-handler.ts then JSON.parse()s. A naive
+//     `--define CONFIGS_JSON:'"<json>"'` would break — the raw JSON's
+//     internal `"` characters would collide with the outer quotes and
+//     produce syntactically invalid JS.
 //     Empty object ({}) in dev + tests — feed-handler.ts responds 404 to
 //     every token until a real deploy runs.
 //
