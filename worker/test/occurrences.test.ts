@@ -47,3 +47,55 @@ describe('generateOccurrences — using the example config fixture', () => {
     }
   });
 });
+
+describe('generateOccurrences — future hijri_year regression', () => {
+  // Event whose hijri_year lands AFTER the current window's start —
+  // simulates a recently-born child. Before the fix, materializeOccurrence
+  // would emit VEVENTs for pre-birth years with negative ages.
+  const FUTURE_BIRTH_YAML = `calendar: umm_al_qura
+occurrence_range:
+  years_back: 5
+  years_forward: 5
+events:
+  - name: "Newborn"
+    hijri_day: 1
+    hijri_month: 1
+    hijri_year: 1447
+    reminder_days_before: []
+  - name: "Undated Observance"
+    hijri_day: 1
+    hijri_month: 1
+    reminder_days_before: []
+`;
+
+  it('does not emit occurrences before the event hijri_year', () => {
+    // "now" in 1446 (2024-07-07 → 1 Muharram 1446). years_back: 5 means
+    // the window includes 1441..1451. Newborn's hijri_year is 1447 → only
+    // 1447..1451 should appear (5 occurrences), not 1441..1446.
+    const now = new Date(Date.UTC(2024, 6, 7));
+    const config = parseConfig(FUTURE_BIRTH_YAML);
+    const occurrences = generateOccurrences(config, now);
+    const newborn = occurrences.filter((o) => o.event.name === 'Newborn');
+
+    expect(newborn.length).toBeGreaterThan(0);
+    for (const o of newborn) {
+      expect(o.hijriYear).toBeGreaterThanOrEqual(1447);
+      expect(o.age).toBeDefined();
+      expect(o.age).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('still emits pre-window occurrences for events WITHOUT hijri_year', () => {
+    // The undated observance has no hijri_year, so it should fill the
+    // whole 11-year window regardless.
+    const now = new Date(Date.UTC(2024, 6, 7));
+    const config = parseConfig(FUTURE_BIRTH_YAML);
+    const occurrences = generateOccurrences(config, now);
+    const undated = occurrences.filter((o) => o.event.name === 'Undated Observance');
+
+    expect(undated.length).toBeGreaterThan(6); // clearly more than the newborn's 5
+    for (const o of undated) {
+      expect(o.age).toBeUndefined();
+    }
+  });
+});
