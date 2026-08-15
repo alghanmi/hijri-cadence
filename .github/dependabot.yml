@@ -1,5 +1,13 @@
 version: 2
 updates:
+  # Dependabot for pnpm workspaces: a single entry at `/` scans every
+  # workspace listed in pnpm-workspace.yaml (worker/) AND updates the root
+  # pnpm-lock.yaml correctly. Adding a second entry at `/worker` opens
+  # duplicate PRs AND — because it updates worker/package.json without
+  # touching the root lockfile — those duplicates hard-fail CI with
+  # ERR_PNPM_OUTDATED_LOCKFILE. See closed PRs #3, #8, #9, #10 for what
+  # the failure mode looked like; the root entry (via the dev-dependencies
+  # group in #11) shipped the same upgrades cleanly.
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
@@ -14,18 +22,6 @@ updates:
       typescript-eslint:
         patterns:
           - '@typescript-eslint/*'
-    ignore:
-      - dependency-name: 'typescript'
-        update-types: ['version-update:semver-major']
-
-  - package-ecosystem: 'npm'
-    directory: '/worker'
-    schedule:
-      interval: 'weekly'
-      day: 'monday'
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: 'chore(deps)'
     ignore:
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
