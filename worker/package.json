@@ -17,7 +17,7 @@
   "dependencies": {
     "@tabby_ai/hijri-converter": "^1.0.5",
     "yaml": "^2.6.1",
-    "zod": "^4.4.3"
+    "zod": "^4.5.1"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.21.1",
