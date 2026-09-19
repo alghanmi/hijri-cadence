@@ -25,6 +25,16 @@ updates:
     ignore:
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
+      # vitest is held at 4.x until @cloudflare/vitest-pool-workers supports
+      # 5.x. The pool's peerDependencies still declare `vitest ^4.1.0` as of
+      # 0.22.0, and running vitest 5 against it fails at worker boot with
+      # `SyntaxError: Unexpected identifier 'file'` from miniflare's proxy
+      # worker (vitest 5 emits module syntax the proxy can't parse). See
+      # closed PR #20 for the failure signature. Revisit when
+      # `npm view @cloudflare/vitest-pool-workers peerDependencies` shows
+      # `vitest ^5.0.0` (or higher).
+      - dependency-name: 'vitest'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'github-actions'
     directory: '/'
