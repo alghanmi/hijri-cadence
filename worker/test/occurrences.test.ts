@@ -99,3 +99,33 @@ events:
     }
   });
 });
+
+describe('generateOccurrences — day-30 fallback', () => {
+  const YAML = `calendar: umm_al_qura
+occurrence_range:
+  years_back: 0
+  years_forward: 1
+events:
+  - name: "Month-end Birthday"
+    hijri_day: 30
+    hijri_month: 9
+    reminder_days_before: []
+`;
+  // 2025-06-01 is 5 Dhu al-Hijjah 1446 → window covers 1446 and 1447.
+  const now = new Date(Date.UTC(2025, 5, 1));
+  const occurrences = generateOccurrences(parseConfig(YAML), now);
+
+  it('observes day 30 on day 29 when the month has 29 days, with a note', () => {
+    const o1446 = occurrences.find((o) => o.hijriYear === 1446);
+    expect(o1446?.date.toISOString().slice(0, 10)).toBe('2025-03-29');
+    expect(o1446?.note).toBe(
+      'Observed on 29 Ramadan 1446 AH — Ramadan has 29 days in 1446 AH (configured date: 30 Ramadan).',
+    );
+  });
+
+  it('keeps the exact date and no note when the month has 30 days', () => {
+    const o1447 = occurrences.find((o) => o.hijriYear === 1447);
+    expect(o1447?.date.toISOString().slice(0, 10)).toBe('2026-03-19');
+    expect(o1447?.note).toBeUndefined();
+  });
+});

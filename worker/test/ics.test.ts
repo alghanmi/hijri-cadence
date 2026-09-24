@@ -139,3 +139,59 @@ events:
     expect(summaryLines[0]).not.toContain('\r');
   });
 });
+
+describe('generateIcs — UIDs', () => {
+  const YAML = `calendar: umm_al_qura
+occurrence_range:
+  years_back: 0
+  years_forward: 0
+events:
+  - name: "عيد ميلاد ليلى"
+    hijri_day: 1
+    hijri_month: 3
+  - name: "ذكرى الزواج"
+    hijri_day: 1
+    hijri_month: 3
+  - name: "Same Name"
+    hijri_day: 2
+    hijri_month: 3
+  - name: "Same Name"
+    hijri_day: 3
+    hijri_month: 3
+`;
+
+  it('gives every event in the same Hijri year a distinct UID', () => {
+    const occurrences = generateOccurrences(parseConfig(YAML), NOW);
+    const ics = generateIcs(occurrences, { now: NOW });
+    const uids = ics.match(/^UID:.*$/gm) ?? [];
+    expect(uids).toHaveLength(4);
+    expect(new Set(uids).size).toBe(4);
+  });
+
+  it('keeps UIDs stable across renders', () => {
+    const occurrences = generateOccurrences(parseConfig(YAML), NOW);
+    const a = generateIcs(occurrences, { now: NOW, feedId: 'f' });
+    const b = generateIcs(occurrences, { now: new Date(Date.UTC(2025, 5, 1)), feedId: 'f' });
+    expect(a.match(/^UID:.*$/gm)).toEqual(b.match(/^UID:.*$/gm));
+  });
+});
+
+describe('generateIcs — DESCRIPTION', () => {
+  it('emits the occurrence note as DESCRIPTION only when present', () => {
+    const YAML = `calendar: umm_al_qura
+occurrence_range:
+  years_back: 0
+  years_forward: 1
+events:
+  - name: "Month-end"
+    hijri_day: 30
+    hijri_month: 9
+`;
+    const now = new Date(Date.UTC(2025, 5, 1));
+    const ics = generateIcs(generateOccurrences(parseConfig(YAML), now), { now });
+    const unfolded = ics.replace(/\r\n /g, '');
+    const descriptions = unfolded.match(/^DESCRIPTION:.*$/gm) ?? [];
+    expect(descriptions).toHaveLength(1);
+    expect(descriptions[0]).toContain('Observed on 29 Ramadan 1446 AH');
+  });
+});

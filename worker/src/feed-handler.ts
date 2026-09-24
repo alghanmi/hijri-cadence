@@ -1,10 +1,10 @@
-import { validateConfig } from './config.js';
+import { TOKEN_PATTERN, validateConfig } from './config.js';
 import { generateIcs } from './ics.js';
 import { generateOccurrences } from './occurrences.js';
 import type { Logger } from './logger.js';
 import type { RawConfig } from './types.js';
 
-const FEED_PATH_RE = /^\/feed\/([A-Za-z0-9]{8,})\.ics$/;
+const FEED_PATH_RE = /^\/feed\/([^/]+)\.ics$/;
 
 /**
  * `CONFIGS_JSON` is a build-time `--define` substitution baked into the
@@ -32,24 +32,26 @@ function parseConfigs(): Map<string, RawConfig> {
 export interface FeedHandlerDeps {
   logger: Logger;
   now?: () => Date;
+  /** Token → raw config. Defaults to the bundled `CONFIGS_JSON`. */
+  configs?: ReadonlyMap<string, RawConfig>;
 }
 
 /**
- * Handle `GET /feed/<token>.ics`. Returns 404 for anything else so the
+ * Handle `GET`/`HEAD /feed/<token>.ics`. Returns 404 for anything else so the
  * Worker doesn't reveal its shape to unauthenticated probes.
  */
 export async function handleFeed(request: Request, deps: FeedHandlerDeps): Promise<Response> {
   const url = new URL(request.url);
+  const isHead = request.method === 'HEAD';
   const match = FEED_PATH_RE.exec(url.pathname);
-  if (match === null || request.method !== 'GET') {
+  const token = match?.[1];
+  if (token === undefined || !TOKEN_PATTERN.test(token) || (request.method !== 'GET' && !isHead)) {
     return new Response('not found', { status: 404 });
   }
 
-  const token = match[1];
-  if (token === undefined) return new Response('not found', { status: 404 });
   const tokenHash = await hashToken(token);
 
-  const raw = CONFIGS.get(token);
+  const raw = (deps.configs ?? CONFIGS).get(token);
   if (raw === undefined) {
     deps.logger.info('feed.miss', { tokenHash });
     return new Response('not found', { status: 404 });
@@ -76,14 +78,16 @@ export async function handleFeed(request: Request, deps: FeedHandlerDeps): Promi
     calendar: config.calendar,
   });
 
-  return new Response(ics, {
+  return new Response(isHead ? null : ics, {
     status: 200,
     headers: {
       'content-type': 'text/calendar; charset=utf-8',
       // Google Calendar polls webcal feeds every 12-24h; the Worker
       // regenerates from config on every request so a short cache is
       // safe and useful for retries.
-      'cache-control': 'public, max-age=300',
+      // `private`: the body is personal data behind a capability URL, so
+      // shared caches must not store it.
+      'cache-control': 'private, max-age=300',
       'content-disposition': 'inline; filename="hijri-cadence.ics"',
     },
   });

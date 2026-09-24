@@ -9,9 +9,9 @@ import type { Occurrence } from './occurrences.js';
  *     Hijri events don't carry a time-of-day.
  *   - One VALARM per entry in `reminder_days_before`.
  *   - Age suffix in SUMMARY iff the occurrence has an `age` value.
- *   - Stable, deterministic UIDs derived from event name + occurrence
- *     year (so a calendar client can dedupe if the same feed is imported
- *     twice).
+ *   - Stable, deterministic UIDs derived from a hash of (name, month, day)
+ *     plus the occurrence year, so distinct events never share a UID.
+ *   - DESCRIPTION carries the occurrence's note (e.g. day-30 fallback).
  *   - CRLF line endings + 75-octet line folding per RFC 5545 §3.1.
  */
 
@@ -67,6 +67,9 @@ function renderEvent(occ: Occurrence, stamp: string, feedId: string | undefined)
     'TRANSP:TRANSPARENT',
     `X-HIJRI-YEAR:${occ.hijriYear}`,
   ];
+  if (occ.note !== undefined) {
+    eventLines.push(`DESCRIPTION:${escapeText(occ.note)}`);
+  }
 
   for (const daysBefore of occ.event.reminder_days_before) {
     eventLines.push(
@@ -83,18 +86,25 @@ function renderEvent(occ: Occurrence, stamp: string, feedId: string | undefined)
 }
 
 function buildUid(occ: Occurrence, feedId: string | undefined): string {
-  const slug = slugify(occ.event.name);
+  const { name, hijri_month, hijri_day } = occ.event;
+  const eventKey = fnv1a64Hex(`${name}\u0000${hijri_month}\u0000${hijri_day}`);
   const feedPart = feedId !== undefined ? `${feedId}.` : '';
-  return `${feedPart}${slug}.${occ.hijriYear}@hijri-cadence`;
+  return `${feedPart}${eventKey}.${occ.hijriYear}@hijri-cadence`;
 }
 
-function slugify(input: string): string {
-  return (
-    input
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'event'
-  );
+const FNV64_OFFSET = 0xcbf29ce484222325n;
+const FNV64_PRIME = 0x100000001b3n;
+const U64_MASK = 0xffffffffffffffffn;
+
+// Hashes the UTF-8 bytes, so non-ASCII names (e.g. Arabic) stay distinct.
+// Uniqueness only — not a security boundary.
+function fnv1a64Hex(input: string): string {
+  let hash = FNV64_OFFSET;
+  for (const byte of new TextEncoder().encode(input)) {
+    hash ^= BigInt(byte);
+    hash = (hash * FNV64_PRIME) & U64_MASK;
+  }
+  return hash.toString(16).padStart(16, '0');
 }
 
 function formatIcsDate(date: Date): string {

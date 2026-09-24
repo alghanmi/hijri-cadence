@@ -61,19 +61,27 @@ export async function scheduledHealthcheck(
   logger: Logger,
   heartbeatUrl: string | undefined,
 ): Promise<void> {
-  const result = runSelfCheck();
-  if (result.passed) {
-    logger.info('healthcheck.pass', { pairs: GOLDEN_PAIRS.length });
-  } else {
-    logger.error('healthcheck.fail', {
-      pairs: GOLDEN_PAIRS.length,
-      mismatches: result.mismatches,
+  let passed = false;
+  try {
+    const result = runSelfCheck();
+    passed = result.passed;
+    if (result.passed) {
+      logger.info('healthcheck.pass', { pairs: GOLDEN_PAIRS.length });
+    } else {
+      logger.error('healthcheck.fail', {
+        pairs: GOLDEN_PAIRS.length,
+        mismatches: result.mismatches,
+      });
+    }
+  } catch (err) {
+    logger.error('healthcheck.error', {
+      error: err instanceof Error ? err.message : String(err),
     });
   }
 
   if (heartbeatUrl === undefined || heartbeatUrl === '') return;
 
-  const url = result.passed ? heartbeatUrl : `${heartbeatUrl}/fail`;
+  const url = passed ? heartbeatUrl : `${heartbeatUrl}/fail`;
   try {
     const resp = await fetch(url, { method: 'POST' });
     if (!resp.ok) {
