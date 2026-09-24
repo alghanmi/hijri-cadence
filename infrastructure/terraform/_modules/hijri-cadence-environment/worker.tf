@@ -15,7 +15,7 @@ resource "cloudflare_workers_script" "hijri_cadence" {
   script_name         = local.worker_name
   content             = local.placeholder_script
   main_module         = "worker.js"
-  compatibility_date  = "2025-05-01"
+  compatibility_date  = var.compatibility_date
   compatibility_flags = ["nodejs_compat"]
 
   bindings = concat(

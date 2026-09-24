@@ -16,9 +16,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to deploy (e.g. v0.1.0)'
+        description: 'Release tag to deploy (e.g. v0.1.0)'
         required: true
-        default: 'v0.1.0'
         type: string
 
 permissions:
@@ -33,12 +32,16 @@ jobs:
       - name: Send repository_dispatch
         env:
           GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+          READ_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
-          SHA: ${{ github.sha }}
           ACTOR: ${{ github.actor }}
+          SOURCE_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           version="${TAG#v}"
+          # The tag's own commit, not this run's main HEAD. GITHUB_TOKEN is
+          # enough to read this repo; the dispatch token is only for the POST.
+          SHA=$(GH_TOKEN="${READ_TOKEN}" gh api "repos/${SOURCE_REPO}/commits/${TAG}" --jq .sha)
           gh api repos/alghanmi/hijri-cadence-deploy/dispatches \
             -f event_type=deploy-release \
             -f "client_payload[version]=${version}" \
@@ -49,5 +52,6 @@ jobs:
             echo "### Dispatched deploy-release"
             echo "- version: \`${version}\`"
             echo "- ref: \`${TAG}\`"
+            echo "- sha: \`${SHA}\`"
             echo "- target: alghanmi/hijri-cadence-deploy"
           } >> "$GITHUB_STEP_SUMMARY"
