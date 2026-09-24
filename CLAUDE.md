@@ -1,187 +1,211 @@
 # hijri-cadence
 
 Context file for AI coding agents working on this repository. Humans: see `README.md`.
+`AGENTS.md` is a symlink to this file.
 
 ## Purpose
 
 `hijri-cadence` converts a static, human-edited list of Hijri-calendar
 events (birthdays, anniversaries, religious dates) into an always-current
-`webcal://` calendar subscription. Because a Hijri-yearly event has no fixed
-Gregorian offset, the Worker materializes individual `VEVENT`s for a rolling
-range of years on every request rather than emitting an `RRULE`.
+`webcal://` calendar subscription. A Hijri-yearly event has no fixed
+Gregorian offset, so the Worker materializes individual `VEVENT`s for a
+rolling range of years on every request rather than emitting an `RRULE`.
 
-This is the **public source repo**. It holds the Worker source, the
-`HijriCalendarProvider` interface + default Umm al-Qura implementation,
-tests (including a local CLI and example config for testing), Terraform
-_module_, and the release flow. Production deploys — including all real
-event data — happen in a separate **private deploy companion** repo,
-`hijri-cadence-deploy`, that holds account-specific values, per-person
-config, and the secrets they resolve from.
+This is the **public source repo**. It holds:
+
+- the Worker source
+- the `HijriCalendarProvider` interface + default Umm al-Qura implementation
+- tests (plus a local CLI and a fictitious example config)
+- the deploy-time config bundler
+- the Terraform _module_
+- the release flow
+
+Production deploys, including all real event data, happen in a separate
+**private deploy companion** repo that holds per-person configs,
+account-specific values, and the credentials they resolve from.
 
 ## Architecture
 
 ```
-public (this repo)                private (deploy companion)
-  worker/src/            ───┐     config/people/*.yaml (real events + tokens)
-  infrastructure/tf/     ───┤     config/deploy.env (non-secrets)
-  examples/               ──┤     GitHub Secrets (CF, Healthchecks.io, ...)
-  release-please             │     deploy-on-release.yml
-       ↓                     │
-  tag vX.Y.Z + release       │
-       ↓                     │
-  notify-deploy.yml ───────dispatch───→ deploy-on-release.yml
-                                          ├── terraform apply
-                                          ├── wrangler deploy   --define VERSION
-                                          └── push Healthchecks.io heartbeat
+public (this repo)                     private deploy companion
+  worker/src/  ─────────────┐            config/people/*.yaml  (real events + tokens)
+  infrastructure/tf module ─┤            config/deploy.env     (non-secret values)
+  release-please            │            GitHub env secrets    (CF token, R2 keys)
+       ↓                    │            deploy workflow
+  merge release PR          │
+       ↓                    │
+  release-please.yml ──repository_dispatch──→ deploy workflow
+                                              ├── bundle-configs (validate + bundle)
+                                              ├── terraform apply
+                                              ├── wrangler deploy --name <script>
+                                              │     --define VERSION / CONFIGS_JSON
+                                              └── smoke test the live hostname
 ```
 
-The deploy repo checks out both itself (config + secrets) and this repo
-(Terraform module + Worker source) at the released ref, and stitches them at
-deploy time — same "two-checkout dance" as FluxTube.
+The deploy workflow checks out both repos (the companion at HEAD; this
+repo at the released tag) and stitches them at deploy time. Merging a
+config change in the companion runs the same workflow against the latest
+release. `notify-deploy.yml` here is only a manual escape hatch.
+
+Ownership split: **Terraform** owns the Worker script's existence,
+plain-text bindings, compatibility date, observability, custom domain,
+and **cron trigger**. **wrangler** owns only the code bundle. Never add
+`[triggers]` to `wrangler.toml`: wrangler would overwrite the schedule on
+every deploy.
 
 ## Tech Stack
 
-Pinned versions — don't drift without explicit instruction:
+Versions live in `package.json` / `worker/package.json` and the Terraform
+`versions.tf`. Resolve current versions from the registry before bumping
+anything (see the global dependency-currency rule).
 
 - **Runtime:** Cloudflare Workers (V8 isolate, not Node.js)
 - **Language:** TypeScript, strict mode
-- **State:** none — static YAML config, bundled at build time. No D1/KV in v1.
-- **Scheduling:** Cloudflare Cron Trigger — runs the golden-vector self-check
-  - Healthchecks.io heartbeat
-- **Package manager:** pnpm workspaces — `worker`, `scripts` (if/when needed)
-- **Calendar conversion:** `@tabby_ai/hijri-converter` (Umm al-Qura,
-  zero-dependency, TypeScript-first) behind the `HijriCalendarProvider`
-  interface — never call it directly outside `providers/umm-al-qura.ts`
-- **Config validation:** zod
-- **IaC:** Terraform, Cloudflare provider — resource names prefixed with the
-  route/subdomain, module lives here, environment + state lives in the
-  deploy repo
+- **State:** none. Configs are bundled at build time via `--define`; no
+  D1/KV in v1.
+- **Scheduling:** a Cloudflare cron trigger (Terraform-managed) runs the
+  golden-vector self-check + Healthchecks.io heartbeat.
+- **Package manager:** pnpm workspace (`worker`)
+- **Calendar conversion:** `@tabby_ai/hijri-converter` (Umm al-Qura)
+  behind the `HijriCalendarProvider` interface. Never call it directly
+  outside `providers/umm-al-qura.ts`.
+- **Config validation:** zod (`config.ts`); deploy-time bundling in
+  `bundle.ts` / `bundle-cli.ts`
+- **IaC:** Terraform, Cloudflare provider v5. Resource names are
+  prefixed `hijri-cadence-<instance_id>`. The module lives here; the
+  environment + state live in the companion.
 - **CI/CD:** GitHub Actions
 - **Versioning & releases:** release-please reading Conventional Commits
-- **Testing:** Vitest with `@cloudflare/vitest-pool-workers`
+- **Testing:** Vitest with `@cloudflare/vitest-pool-workers` (vitest held
+  at 4.x; see the ignore rule in `.github/dependabot.yml`)
 - **Formatting:** Prettier (2-space, single quotes)
 - **Linting:** ESLint flat config with `typescript-eslint`
+- **Operations:** `Makefile`. Every documented local operation is a
+  `make` target.
 
 ## Repository Layout
 
 ```
 .
-├── README.md
-├── CLAUDE.md / AGENTS.md              # this file (mirrored)
-├── SECURITY.md
-├── LICENSE                             # MIT
-├── CHANGELOG.md                        # release-please owned
+├── README.md, SECURITY.md, LICENSE (MIT), CLAUDE.md (+ AGENTS.md symlink)
+├── Makefile                            # every local operation (`make help`)
 ├── package.json, pnpm-workspace.yaml, pnpm-lock.yaml
 ├── tsconfig.base.json, eslint.config.js, .prettierrc
 ├── release-please-config.json, .release-please-manifest.json
 ├── .github/
 │   ├── workflows/
-│   │   ├── pr-checks.yml               # typecheck + lint + test (Tier 1 only) + audit
+│   │   ├── pr-checks.yml               # typecheck, lint, format, Tier 1 tests, bundle dry-run, audit
 │   │   ├── terraform-check.yml         # terraform fmt -check + validate
-│   │   ├── release-please.yml
-│   │   └── notify-deploy.yml           # release published → dispatch to deploy repo
+│   │   ├── release-please.yml          # release PR; on release → dispatch to the companion
+│   │   └── notify-deploy.yml           # manual workflow_dispatch: re-dispatch an existing tag
 │   └── dependabot.yml
 ├── docs/
-│   ├── architecture.md                 # occurrence generation, provider interface, ICS shape
-│   └── setup.md                        # local-dev quick start
-├── examples/
-│   └── events.example.yaml             # fictitious — used by tests + `make ical-local`
-├── infrastructure/terraform/
-│   └── _modules/hijri-cadence-environment/
-│       ├── worker.tf, dns.tf, variables.tf, outputs.tf, locals.tf
+│   ├── architecture.md                 # how it works (source of truth)
+│   ├── setup.md                        # local-dev guide
+│   └── design/hijri-cadence-design.md  # historical design draft
+├── examples/events.example.yaml        # fictitious; used by tests, `make ical`
+├── infrastructure/terraform/_modules/hijri-cadence-environment/
+│   └── versions.tf, variables.tf, locals.tf, worker.tf, dns.tf, outputs.tf
 └── worker/
-    ├── package.json, wrangler.toml     # PLACEHOLDER resource ids — Terraform sets real bindings
-    ├── vitest.config.ts
-    ├── .dev.vars.example
+    ├── package.json, wrangler.toml     # no real ids; no [triggers] (Terraform owns cron)
+    ├── vitest.config.ts, tsconfig.json, .dev.vars.example
     ├── src/
-    │   ├── index.ts                    # scheduled + fetch handlers
-    │   ├── providers/
-    │   │   ├── provider.ts             # HijriCalendarProvider interface
-    │   │   └── umm-al-qura.ts          # default implementation
-    │   ├── occurrences.ts              # config → occurrence list (pure, no Worker deps)
-    │   ├── ics.ts                      # occurrence list → ICS text (pure, RFC 5545)
-    │   ├── config.ts                   # YAML parse/validate (zod)
-    │   ├── feed-handler.ts             # GET /feed/<token>.ics
+    │   ├── index.ts                    # fetch + scheduled handlers
+    │   ├── providers/{provider,umm-al-qura}.ts
+    │   ├── config.ts                   # zod schemas (config, personConfigSchema w/ token)
+    │   ├── occurrences.ts              # config → occurrences (pure; day-30 fallback)
+    │   ├── hijri-months.ts             # month names for notes
+    │   ├── ics.ts                      # occurrences → RFC 5545 (pure)
+    │   ├── feed-handler.ts             # GET/HEAD /feed/<token>.ics
     │   ├── healthcheck.ts              # golden-vector self-check + Healthchecks.io ping
-    │   ├── logger.ts                   # structured JSON logging — no console.log elsewhere
-    │   ├── cli.ts                      # local ICS generation entry point
-    │   └── globals.d.ts                # declare const VERSION (--define injected)
+    │   ├── bundle.ts, bundle-cli.ts    # deploy-time config validation + bundling
+    │   ├── cli.ts                      # `make ical`
+    │   ├── logger.ts, types.ts, globals.d.ts
     └── test/
-        ├── conversion.test.ts          # golden-vector unit tests (Tier 1)
-        ├── occurrences.test.ts
-        ├── ics.test.ts
-        └── spot-check/
-            └── aladhan.spotcheck.ts    # Tier 3 — NOT run in pr-checks.yml, network-dependent
+        ├── *.test.ts                   # Tier 1 (CI-gated, no network)
+        ├── fixtures.ts                 # inline copy of the example config (workerd has no fs)
+        └── spot-check/aladhan.spotcheck.ts   # Tier 3 — never in CI
 ```
 
 ## Conventions
 
-- **Commits**: Conventional Commits. `feat:`, `fix:`, `chore:`, `docs:`,
-  `ci:`, `refactor:`, `test:`. release-please reads these for version bumps.
-- **Strictness**: `"strict": true`. No implicit any. No non-null assertions
-  (`!`) — narrow properly. Use `unknown` for external JSON (config, API
-  responses), narrow with type guards or zod.
-- **Naming**: `camelCase` vars/funcs, `PascalCase` types,
+- **Branches + PRs only.** Never commit or push to `main`; squash-merge
+  PRs. The PR title is the Conventional Commit subject on `main`.
+- **Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`,
+  `ci:`, `refactor:`, `test:`). release-please reads them for version
+  bumps. Tooling/CI/docs are `chore:`/`docs:`, not `feat:`.
+- **Strictness:** `"strict": true`. No implicit any. No non-null
+  assertions (`!`); narrow properly. Use `unknown` for external JSON and
+  narrow with type guards or zod.
+- **Naming:** `camelCase` vars/funcs, `PascalCase` types,
   `SCREAMING_SNAKE_CASE` env-backed constants.
 - **No barrel files** except the Worker entrypoint.
-- **Logging**: one JSON line per significant event, via `logger.ts` only.
-  Required fields: `ts`, `level`, `event`, `version`. Token is always hashed
-  before logging, never logged raw.
-- **Testing tiers** (see `docs/architecture.md` for the full rationale):
-  - Tier 1 (`worker/test/*.test.ts`): CI-gated, no network, runs in
-    `pr-checks.yml`.
-  - Tier 2 (runtime self-check via `healthcheck.ts`): runs inside the
-    deployed Worker on the Cron Trigger, not in CI.
-  - Tier 3 (`worker/test/spot-check/`): third-party validation against the
-    Aladhan API. Manual (`make spot-check` in the deploy repo) or a
-    low-frequency scheduled Action — **never** part of `pr-checks.yml**.
-- **No real identifiers in tracked files**: `wrangler.toml` resource IDs are
-  placeholders; Terraform sets the real bindings. No account ID, no real
-  domain/route value, no real event data anywhere in this repo, ever.
-- **Terraform**: `terraform fmt -recursive` clean at all times; CI enforces.
+- **Logging:** one JSON line per significant event, via `logger.ts`
+  only. Required fields: `ts`, `level`, `event`, `version`, `instance`.
+  Tokens are always hashed before logging, never logged raw.
+- **Personal data:** diagnostics (validation, bundling, logs) report file
+  names and field paths, never config values.
+- **Testing tiers** (full rationale in `docs/architecture.md`):
+  - Tier 1 (`worker/test/*.test.ts`): CI-gated, no network (`make test`).
+  - Tier 2 (runtime self-check via `healthcheck.ts`): runs in the
+    deployed Worker on the cron trigger, not in CI.
+  - Tier 3 (`worker/test/spot-check/`): Aladhan API cross-check,
+    `make spot-check` on demand. **Never** part of `pr-checks.yml`.
+- **No real identifiers in tracked files:** no account/zone IDs, no real
+  event data, no tokens. `wrangler.toml` holds only local-dev defaults.
+- **Terraform:** `make tf-check` clean at all times (CI enforces fmt +
+  validate). Outputs read attributes of created resources, not inputs.
+- **Work tracking:** open, deferred, and operator work is tracked as
+  issues in the private companion. Public PRs, commits, and issues never
+  reference those issues, the companion's name, or its URL.
 
 ## Public-side CI
 
-| Workflow              | Trigger                                   | What                                                  |
-| --------------------- | ----------------------------------------- | ----------------------------------------------------- |
-| `pr-checks.yml`       | PR                                        | typecheck + lint + Tier 1 tests + audit               |
-| `terraform-check.yml` | PR touching `infrastructure/terraform/**` | `fmt -check` + `validate`                             |
-| `release-please.yml`  | push to main                              | Maintains the release PR via Conventional Commits     |
-| `notify-deploy.yml`   | `release: published`                      | Fires `repository_dispatch` to `hijri-cadence-deploy` |
+| Workflow              | Trigger                                   | What                                                               |
+| --------------------- | ----------------------------------------- | ------------------------------------------------------------------ |
+| `pr-checks.yml`       | PR                                        | typecheck, lint, format, Tier 1 tests, bundle dry-run build, audit |
+| `terraform-check.yml` | PR touching `infrastructure/terraform/**` | `fmt -check` + `validate`                                          |
+| `release-please.yml`  | push to main                              | Maintains the release PR; on release, dispatches the deploy        |
+| `notify-deploy.yml`   | manual `workflow_dispatch`                | Re-dispatches `deploy-release` for an existing tag                 |
 
-Auth surface: this repo holds **exactly one secret**,
-`DEPLOY_DISPATCH_TOKEN` — a fine-scoped PAT with `repository_dispatch:write`
-on the deploy companion repo only. Compromise lets an attacker redeploy
-already-released code, nothing more.
+Auth surface: this repo holds **exactly one secret** (in its `production`
+environment), `DEPLOY_DISPATCH_TOKEN`: a fine-grained PAT with
+Contents: read & write on the companion repo only, which is what gates
+`repository_dispatch`. A leak lets an attacker redeploy already-released
+code, nothing more.
 
 ## What lives in the deploy companion (not here)
 
-- `config/people/*.yaml` — real event data (names, Hijri dates, tokens) per
-  person/family
-- `config/deploy.env` — real Cloudflare account ID, route/subdomain, cron
-  schedule
-- Worker secrets: Healthchecks.io ping URL, any provider-specific keys
-- `deploy-on-release.yml` (consumes the dispatch, runs `terraform apply` +
-  `wrangler deploy`)
-- `terraform-apply.yml` — manual `workflow_dispatch` entrypoint
-- Ops scripts touching the password manager: `sync-github-secrets.sh`,
-  `sync-worker-secrets.sh`, `bootstrap-local-tf.sh`
-- The Makefile driving all local operations (setup/secrets/deploy/clean/
-  destroy/spot-check) — see that repo's own `CLAUDE.md` once scaffolded
-- Operator runbook (`TODO.md`, `docs/bootstrap.md`)
+- `config/people/*.yaml`: real event data + tokens (committed there,
+  validated in its CI)
+- `config/deploy.env`: non-secret values: account + zone IDs, hostname,
+  `instance_id`, state bucket/key, cron schedule, log level, and the
+  **Healthchecks.io ping URL** (`TF_VAR_heartbeat_url`, deliberately not
+  a secret)
+- The Terraform environment + lock file
+- The deploy workflow (dispatch + config-change triggers)
+- Credential sync (password manager → GitHub environment secrets: the CF
+  API token and R2 keys) and the local Terraform bootstrap script
+- Its own `Makefile` for all operations (secrets, plan/apply, deploy,
+  verify, validate, person scaffolding)
+- Operator runbook and the issue tracker for this project
+
+There are **no Worker secrets**: every Worker binding is a Terraform
+plain-text var.
 
 ## Non-goals
 
-Out of scope; will be rejected without a new requirements discussion:
+These are out of scope and will be rejected without a new requirements
+discussion:
 
-- Moon-sighting-based dates — this is a scheduling tool, not a fiqh
-  authority. See README disclaimer.
+- Moon-sighting-based dates. This is a scheduling tool, not a fiqh
+  authority; see the README disclaimer.
 - Write access / two-way calendar sync
-- A UI for populating dates in v1 (tracked as a GitHub Issue for v2)
-- Passkey/WebAuthn auth in v1 (tracked as a GitHub Issue for v2)
+- A UI for populating dates in v1 (v2 backlog)
+- Passkey/WebAuthn auth in v1 (v2 backlog)
 - Dates outside 1343–1500 AH (1924–2077 CE)
-- Multi-calendar output in a single feed — one `calendar` provider per config
-  file; someone wanting two authorities runs two configs
+- Multi-calendar output in a single feed: one `calendar` provider per
+  config file. Anyone wanting two authorities runs two configs.
 
 ## References
 

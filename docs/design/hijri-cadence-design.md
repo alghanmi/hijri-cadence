@@ -1,5 +1,12 @@
 # Design Doc: hijri-cadence
 
+> **Historical draft (v4).** Kept for decision history; superseded by
+> [`docs/architecture.md`](../architecture.md), which describes the system
+> as built. In particular §9–§12 describe a secrets model (Healthchecks as a
+> secret, a `sync-worker-secrets.sh` script, `cadence.forklabs.cc`) that was
+> never built, and §10/§12 contain requests to the reviewer that no longer
+> apply.
+
 **Status:** Draft v4 for review
 **Name:** `hijri-cadence` — confirmed
 **Target:** MIT-licensed, open source — hosted on **forklabs.cc** (subdomain: `cadence.forklabs.cc`)
