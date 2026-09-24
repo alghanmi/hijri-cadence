@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
     "generate:local": "tsx src/cli.ts",
+    "bundle-configs": "tsx src/bundle-cli.ts",
     "spot-check": "tsx test/spot-check/aladhan.spotcheck.ts"
   },
   "dependencies": {
