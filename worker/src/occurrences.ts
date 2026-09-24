@@ -1,4 +1,5 @@
 import type { Config, EventConfig } from './config.js';
+import { hijriMonthName } from './hijri-months.js';
 import { getProvider, type HijriCalendarProvider } from './providers/provider.js';
 
 /**
@@ -15,6 +16,8 @@ export interface Occurrence {
   hijriYear: number;
   /** Age in Hijri years for THIS occurrence, or undefined if hijri_year not set. */
   age?: number;
+  /** Human-readable explanation when the observed date differs from the configured one. */
+  note?: string;
 }
 
 /**
@@ -60,16 +63,27 @@ function materializeOccurrence(
   }
 
   let date: Date;
+  let note: string | undefined;
   try {
     date = provider.toGregorian(hijriYear, event.hijri_month, event.hijri_day);
   } catch {
-    // Provider rejected the date (e.g. 30th of a 29-day Hijri month for
-    // this specific year). Skip silently — the event simply doesn't
-    // occur that Hijri year.
-    return null;
+    // Hijri months have 29 or 30 days depending on the year. A day-30
+    // event in a 29-day month is observed on the 29th rather than dropped.
+    // Any other rejection (e.g. year outside the provider's range) skips.
+    if (event.hijri_day !== 30) return null;
+    try {
+      date = provider.toGregorian(hijriYear, event.hijri_month, 29);
+    } catch {
+      return null;
+    }
+    const month = hijriMonthName(event.hijri_month);
+    note =
+      `Observed on 29 ${month} ${hijriYear} AH — ${month} has 29 days in ${hijriYear} AH ` +
+      `(configured date: 30 ${month}).`;
   }
 
   const occurrence: Occurrence = { event, date, hijriYear };
+  if (note !== undefined) occurrence.note = note;
   if (event.hijri_year !== undefined) {
     occurrence.age = hijriYear - event.hijri_year;
   }
