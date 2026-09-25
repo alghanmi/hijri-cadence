@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/alghanmi/hijri-cadence/compare/v0.2.0...v0.2.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* keep Workers Logs on across deploys ([#33](https://github.com/alghanmi/hijri-cadence/issues/33)) ([fe2f6f9](https://github.com/alghanmi/hijri-cadence/commit/fe2f6f94b59de7e41c65127b3ed2d044d95374d2))
+
 ## [0.2.0](https://github.com/alghanmi/hijri-cadence/compare/v0.1.0...v0.2.0) (2026-09-25)
 
 
