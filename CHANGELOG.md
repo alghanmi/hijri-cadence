@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/alghanmi/hijri-cadence/compare/v0.1.0...v0.2.0) (2026-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* the module no longer accepts log_level, heartbeat_url or compatibility_date. Pass the vars to `wrangler deploy --var` and set the compatibility date in wrangler.toml. The `[observability]` table was removed from wrangler.toml; Terraform owns those settings.
+
+### Bug Fixes
+
+* manage the Worker with code-less cloudflare_worker ([#31](https://github.com/alghanmi/hijri-cadence/issues/31)) ([8eb9ec8](https://github.com/alghanmi/hijri-cadence/commit/8eb9ec8a4b4c5e8ea18a9d4b2b50f650057fd959))
+
 ## 0.1.0 (2026-09-25)
 
 
