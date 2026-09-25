@@ -26,8 +26,8 @@ In scope:
 Out of scope:
 
 - Third-party dependencies (report upstream)
-- The published feed at `cadence.forklabs.cc` — that's a personal deployment;
-  its operational security is separate from this open-source project
+- The published feed at `hijri-cadence.alghanmi.cloud` — that's a personal
+  deployment; its operational security is separate from this open-source project
 
 ## Non-goals
 
