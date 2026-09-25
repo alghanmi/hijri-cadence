@@ -199,13 +199,16 @@ keys.
 
 Ownership inside a deploy:
 
-- **Terraform** owns the Worker script's existence, plain-text bindings
-  (`INSTANCE_ID`, `LOG_LEVEL`, `HEARTBEAT_URL`), compatibility date,
-  observability settings, the custom domain, and the cron trigger.
-  `wrangler.toml` deliberately has no `[triggers]`, because wrangler
-  would overwrite the schedule on every deploy.
-- **wrangler** owns the code bundle. It deploys to the Terraform-created
-  script via `--name` and keeps Terraform's vars (`--keep-vars`).
+- **Terraform** owns the Worker entity through the code-less
+  `cloudflare_worker` resource (observability settings, workers.dev off),
+  plus the custom domain and the cron trigger. It never reads or uploads
+  code. `wrangler.toml` deliberately has no `[triggers]` or
+  `[observability]`, because wrangler would overwrite those settings on
+  every deploy.
+- **wrangler** owns the code bundle, the compatibility date/flags, and the
+  plain-text vars (`INSTANCE_ID`, `LOG_LEVEL`, `HEARTBEAT_URL`), which the
+  deploy passes as `--var`. It deploys to the Terraform-managed Worker via
+  `--name`.
 
 Deploy chains:
 

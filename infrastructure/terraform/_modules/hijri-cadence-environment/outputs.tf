@@ -10,7 +10,7 @@ output "prefix" {
 
 output "worker_name" {
   description = "Cloudflare Worker script name."
-  value       = cloudflare_workers_script.hijri_cadence.script_name
+  value       = cloudflare_worker.hijri_cadence.name
 }
 
 output "feed_hostname" {
