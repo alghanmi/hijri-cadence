@@ -47,10 +47,14 @@ repo at the released tag) and stitches them at deploy time. Merging a
 config change in the companion runs the same workflow against the latest
 release. `notify-deploy.yml` here is only a manual escape hatch.
 
-Ownership split: **Terraform** owns the Worker script's existence,
-plain-text bindings, compatibility date, observability, custom domain,
-and **cron trigger**. **wrangler** owns only the code bundle. Never add
-`[triggers]` to `wrangler.toml`: wrangler would overwrite the schedule on
+Ownership split: **Terraform** owns the Worker entity via the code-less
+`cloudflare_worker` resource (observability, workers.dev off), the custom
+domain, and the **cron trigger**. **wrangler** owns the code, the
+compatibility date/flags (`wrangler.toml`), and the plain-text vars (passed
+with `--var`). Terraform must never manage the code: the old
+`cloudflare_workers_script` downloaded the bundle on every refresh and broke
+once wrangler replaced it. Never add `[triggers]` or `[observability]` to
+`wrangler.toml`, since wrangler would overwrite Terraform's settings on
 every deploy.
 
 ## Tech Stack
@@ -190,8 +194,8 @@ code, nothing more.
   verify, validate, person scaffolding)
 - Operator runbook and the issue tracker for this project
 
-There are **no Worker secrets**: every Worker binding is a Terraform
-plain-text var.
+There are **no Worker secrets**: the only bindings are three plain-text vars
+that the deploy passes to `wrangler deploy --var`.
 
 ## Non-goals
 

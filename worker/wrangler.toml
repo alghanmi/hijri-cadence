@@ -3,7 +3,7 @@
 # Terraform-managed script that the custom domain routes to.
 name = "hijri-cadence"
 main = "src/index.ts"
-# Keep in sync with the Terraform module variable `compatibility_date`.
+# Owned here: wrangler sets it on every deploy (Terraform no longer does).
 compatibility_date = "2026-08-15"
 compatibility_flags = ["nodejs_compat"]
 
@@ -33,12 +33,12 @@ CONFIGS_JSON = "\"{}\""
 # `triggers.crons` is defined, which would override the Terraform-managed
 # cron_schedule / cron_enabled on every deploy.
 
-# ── Non-secret vars ───────────────────────────────────────────────────────────
-# Vars are owned by Terraform in production. The deploy workflow runs
-# `wrangler deploy --keep-vars` so wrangler never clobbers them. For local
-# `wrangler dev`, put placeholder values in `.dev.vars` alongside any
-# secrets — wrangler dev loads vars and secrets identically from that file.
+# ── Vars ──────────────────────────────────────────────────────────────────────
+# Production vars (INSTANCE_ID, LOG_LEVEL, HEARTBEAT_URL) are passed by the
+# deploy as `wrangler deploy --var KEY:VALUE`. For local `wrangler dev`, put
+# placeholder values in `.dev.vars` (see .dev.vars.example).
 
-# ── Logs ──────────────────────────────────────────────────────────────────────
-[observability]
-enabled = true
+# ── Observability ─────────────────────────────────────────────────────────────
+# Owned by Terraform (`cloudflare_worker.observability`). Don't add an
+# `[observability]` table here: wrangler sends it on every deploy when present
+# and would overwrite the Terraform settings.

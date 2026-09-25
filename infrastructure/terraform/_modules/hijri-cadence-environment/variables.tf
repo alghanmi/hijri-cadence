@@ -23,23 +23,6 @@ variable "feed_hostname" {
   type        = string
 }
 
-variable "log_level" {
-  description = "Worker log level: debug, info, warn, or error."
-  type        = string
-  default     = "info"
-
-  validation {
-    condition     = contains(["debug", "info", "warn", "error"], var.log_level)
-    error_message = "log_level must be one of: debug, info, warn, error."
-  }
-}
-
-variable "heartbeat_url" {
-  description = "Healthchecks.io ping URL — pinged by the Worker's Cron Trigger after the golden-vector self-check passes. Empty disables the heartbeat."
-  type        = string
-  default     = ""
-}
-
 variable "cron_schedule" {
   description = "Cron expression for the Worker's scheduled handler (self-check + heartbeat)."
   type        = string
@@ -52,13 +35,3 @@ variable "cron_enabled" {
   default     = true
 }
 
-variable "compatibility_date" {
-  description = "Workers runtime compatibility date. Keep in sync with compatibility_date in worker/wrangler.toml — wrangler deploy pushes that value too, and a mismatch shows up as plan drift."
-  type        = string
-  default     = "2026-08-15"
-
-  validation {
-    condition     = can(regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", var.compatibility_date))
-    error_message = "compatibility_date must be YYYY-MM-DD."
-  }
-}

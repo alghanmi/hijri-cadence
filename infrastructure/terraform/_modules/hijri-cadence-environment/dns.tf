@@ -7,5 +7,5 @@ resource "cloudflare_workers_custom_domain" "hijri_cadence" {
   account_id = var.cloudflare_account_id
   zone_id    = var.zone_id
   hostname   = var.feed_hostname
-  service    = cloudflare_workers_script.hijri_cadence.script_name
+  service    = cloudflare_worker.hijri_cadence.name
 }
