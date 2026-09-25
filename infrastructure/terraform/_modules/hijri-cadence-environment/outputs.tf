@@ -14,11 +14,11 @@ output "worker_name" {
 }
 
 output "feed_hostname" {
-  description = "Public hostname the Worker is bound to (e.g. cadence.forklabs.cc)."
-  value       = var.feed_hostname
+  description = "Public hostname the Worker's custom domain serves (e.g. cadence.example.com)."
+  value       = cloudflare_workers_custom_domain.hijri_cadence.hostname
 }
 
-output "cron_schedule" {
-  description = "Cron expression firing the Worker's scheduled handler."
-  value       = var.cron_schedule
+output "cron_schedules" {
+  description = "Cron expressions currently attached to the Worker (empty when cron_enabled = false)."
+  value       = [for s in cloudflare_workers_cron_trigger.hijri_cadence.schedules : s.cron]
 }

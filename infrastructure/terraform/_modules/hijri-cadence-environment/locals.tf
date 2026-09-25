@@ -10,10 +10,9 @@ locals {
   # ── Non-secret Worker vars (plain_text bindings) ──────────────────────────
   #
   # INSTANCE_ID lands on every log line as a version-agnostic identifier.
-  # HEARTBEAT_URL and HEARTBEAT_URL alike stay empty by default; the Worker
-  # code treats empty as "feature disabled" so the Cloudflare API doesn't
-  # reject an empty plain_text binding, they get filtered out of the
-  # bindings list below.
+  # HEARTBEAT_URL is optional: the Worker treats an absent binding as
+  # "heartbeat disabled", and Cloudflare rejects empty plain_text bindings,
+  # so an empty value is filtered out of the bindings list in worker.tf.
   worker_vars = {
     INSTANCE_ID   = var.instance_id
     LOG_LEVEL     = var.log_level

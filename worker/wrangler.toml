@@ -1,6 +1,10 @@
+# Local dev / tests only. Production deploys pass `--name <terraform output
+# worker_name>` (hijri-cadence-<instance_id>) so wrangler updates the
+# Terraform-managed script that the custom domain routes to.
 name = "hijri-cadence"
 main = "src/index.ts"
-compatibility_date = "2025-05-01"
+# Keep in sync with the Terraform module variable `compatibility_date`.
+compatibility_date = "2026-08-15"
 compatibility_flags = ["nodejs_compat"]
 
 # Route + custom domain are managed by Terraform (see the module in
@@ -24,11 +28,10 @@ VERSION = "\"0.0.0-dev\""
 CONFIGS_JSON = "\"{}\""
 
 # ── Cron trigger ──────────────────────────────────────────────────────────────
-# Default cadence. Terraform manages the production cron via `cron_schedule`
-# on the module. Keep this value in sync with the module's default to avoid
-# drift — `wrangler deploy` will set crons from this file on each push.
-[triggers]
-crons = ["0 */6 * * *"]
+# Owned by Terraform (`cloudflare_workers_cron_trigger` in the module). Do NOT
+# add a `[triggers]` table here: `wrangler deploy` PUTs the schedule whenever
+# `triggers.crons` is defined, which would override the Terraform-managed
+# cron_schedule / cron_enabled on every deploy.
 
 # ── Non-secret vars ───────────────────────────────────────────────────────────
 # Vars are owned by Terraform in production. The deploy workflow runs
