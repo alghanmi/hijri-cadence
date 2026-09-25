@@ -12,6 +12,9 @@ resource "cloudflare_worker" "hijri_cadence" {
   account_id = var.cloudflare_account_id
   name       = local.worker_name
 
+  # MUST match `[observability]` in worker/wrangler.toml: wrangler's script
+  # upload resets any observability setting it omits, so both sides send
+  # identical values. Change both places together.
   observability = {
     enabled            = true
     head_sampling_rate = 1
