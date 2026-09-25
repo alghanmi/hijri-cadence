@@ -35,8 +35,28 @@ jobs:
       - name: Lint
         run: pnpm --filter @hijri-cadence/worker lint
 
+      - name: Format check
+        run: pnpm format:check
+
       - name: Test (Tier 1 only — no network)
         run: pnpm --filter @hijri-cadence/worker test
+
+      # Exercise the deploy path end to end without credentials: bundle a
+      # fictitious config with the same CLI + --define quoting the deploy
+      # uses, then have wrangler build (not upload) the Worker.
+      - name: Build deployable bundle (dry run)
+        working-directory: worker
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/people"
+          mkdir -p "$dir"
+          { echo 'token: CiTokenCiTokenCiToken00'; cat ../examples/events.example.yaml; } > "$dir/ci.yaml"
+          pnpm -s bundle-configs --dir "$dir" --out "$RUNNER_TEMP/configs.json"
+          pnpm exec wrangler deploy --dry-run --outdir "$RUNNER_TEMP/bundle" \
+            --define VERSION:'"0.0.0-ci"' \
+            --define CONFIGS_JSON:"$(jq -Rs . < "$RUNNER_TEMP/configs.json")"
+          grep -q 'CiTokenCiTokenCiToken00' "$RUNNER_TEMP/bundle/index.js"
+          grep -q '0.0.0-ci' "$RUNNER_TEMP/bundle/index.js"
 
       # npm registry retired /security/audits/quick + /security/advisories/bulk
       # returns 410 for most pnpm builds. Keeping the step but marking
