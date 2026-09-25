@@ -53,9 +53,11 @@ domain, and the **cron trigger**. **wrangler** owns the code, the
 compatibility date/flags (`wrangler.toml`), and the plain-text vars (passed
 with `--var`). Terraform must never manage the code: the old
 `cloudflare_workers_script` downloaded the bundle on every refresh and broke
-once wrangler replaced it. Never add `[triggers]` or `[observability]` to
-`wrangler.toml`, since wrangler would overwrite Terraform's settings on
-every deploy.
+once wrangler replaced it. Never add `[triggers]` to `wrangler.toml`, since
+wrangler would overwrite the Terraform cron on every deploy. The
+`[observability]` table is the opposite case: it **must** exist and mirror
+the module's `cloudflare_worker.observability`, because every script upload
+resets omitted observability settings to off.
 
 ## Tech Stack
 

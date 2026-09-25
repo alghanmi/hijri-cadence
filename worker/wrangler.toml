@@ -39,6 +39,23 @@ CONFIGS_JSON = "\"{}\""
 # placeholder values in `.dev.vars` (see .dev.vars.example).
 
 # ── Observability ─────────────────────────────────────────────────────────────
-# Owned by Terraform (`cloudflare_worker.observability`). Don't add an
-# `[observability]` table here: wrangler sends it on every deploy when present
-# and would overwrite the Terraform settings.
+# MUST mirror `observability` on `cloudflare_worker` in the Terraform module
+# (infrastructure/terraform/_modules/hijri-cadence-environment/worker.tf).
+# Every `wrangler deploy` uploads the script, and the upload resets any
+# observability setting it omits to "off". Without this table, each deploy
+# disabled Workers Logs right after Terraform enabled them, and
+# `terraform plan` showed drift. Change both places together.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = false
+head_sampling_rate = 1
+persist = true
