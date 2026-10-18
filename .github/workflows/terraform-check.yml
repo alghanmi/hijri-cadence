@@ -1,9 +1,8 @@
 name: Terraform check
 
 # Format + validation on every PR touching infrastructure/terraform/**.
-# The environment (backend + real values) lives in the private companion
-# repo (alghanmi/hijri-cadence-deploy) — this workflow only validates the
-# reusable module in this repo.
+# The environment (backend + real values) lives outside this repository;
+# this workflow only validates the reusable module in this repo.
 
 on:
   pull_request:

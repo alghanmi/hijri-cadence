@@ -174,11 +174,13 @@ anything (see the global dependency-currency rule).
 | `release-please.yml`  | push to main                              | Maintains the release PR; on release, dispatches the deploy        |
 | `notify-deploy.yml`   | manual `workflow_dispatch`                | Re-dispatches `deploy-release` for an existing tag                 |
 
-Auth surface: this repo holds **exactly one secret** (in its `production`
+Auth surface: this repo holds **one credential** (in its `production`
 environment), `DEPLOY_DISPATCH_TOKEN`: a fine-grained PAT with
 Contents: read & write on the companion repo only, which is what gates
 `repository_dispatch`. A leak lets an attacker redeploy already-released
-code, nothing more.
+code, nothing more. `DEPLOY_TARGET_REPO`, the dispatch destination, is
+also an environment secret: it grants nothing, and is a secret only so no
+workflow or log spells the destination out.
 
 ## What lives in the deploy companion (not here)
 
