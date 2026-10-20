@@ -198,8 +198,10 @@ workflow or log spells the destination out.
   verify, validate, person scaffolding)
 - Operator runbook and the issue tracker for this project
 
-There are **no Worker secrets**: the only bindings are three plain-text vars
-that the deploy passes to `wrangler deploy --var`.
+The Worker has one secret, `HEARTBEAT_URL` (the Healthchecks.io ping URL:
+whoever holds it can ping the check, so it is a credential, set with
+`wrangler secret put`), and two plain-text vars, `INSTANCE_ID` and
+`LOG_LEVEL`, that the deploy passes to `wrangler deploy --var`.
 
 ## Non-goals
 
