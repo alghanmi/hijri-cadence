@@ -1,15 +1,15 @@
 // Build-time string literals injected by wrangler `--define`. Three sites:
 //
 //   VERSION:
-//     - Production deploys: `wrangler --define VERSION:'"<version>"'` in
-//       the deploy companion's deploy-on-release.yml, sourced from package.json.
+//     - Production deploys: `wrangler --define VERSION:'"<version>"'`,
+//       sourced from the release (package.json).
 //     - Local `wrangler dev`: wrangler.toml `[define]` default.
 //     - Tests: same [define] flows through @cloudflare/vitest-pool-workers.
 //
 //   CONFIGS_JSON:
 //     A JSON.stringify()-safe string, itself the JSON-encoded form of
-//     `Record<token, RawConfig>`. Produced at deploy time by the deploy
-//     companion's workflow reading every config/people/*.yaml file, then
+//     `Record<token, RawConfig>`. Produced at deploy time by
+//     `bundle-configs` from the deployment's per-person YAML files, then
 //     passed via wrangler:
 //       --define CONFIGS_JSON:"$(printf '%s' "$CONFIGS_JSON" | jq -Rs .)"
 //     The `jq -Rs .` wraps the raw JSON payload in a properly-escaped JS

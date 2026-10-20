@@ -69,11 +69,10 @@ together.
 
 ## Self-hosting
 
-The hosted deployment at `hijri-cadence.alghanmi.cloud` is one instance of
-this Worker. Its per-family configs, tokens, and Cloudflare credentials
-live in a separate private deploy companion repo. See
-[the split-repo pattern](docs/architecture.md#split-repo-pattern) to run
-the same shape yourself.
+Deployment happens outside this repository: per-family configs, tokens,
+and Cloudflare credentials are supplied at deploy time and never committed
+here. [Deploying](docs/architecture.md#deploying) describes what a deploy
+does and which tool owns which resource.
 
 ## Repo layout
 

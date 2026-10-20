@@ -87,8 +87,8 @@ testing tiers.
 
 The module lives in
 `infrastructure/terraform/_modules/hijri-cadence-environment/`. The
-environment (backend, real values, state) lives in the private deploy
-companion, so developing here needs no Cloudflare credentials.
+environment (backend, real values, state) lives with the deployment,
+outside this repo, so developing here needs no Cloudflare credentials.
 
 ```sh
 make tf-check    # fmt -check + init -backend=false + validate

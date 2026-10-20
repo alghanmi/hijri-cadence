@@ -12,9 +12,8 @@
 **Target:** MIT-licensed, open source — hosted on **forklabs.cc** (subdomain: `cadence.forklabs.cc`)
 
 > Note on examples: all names, dates, and tokens in this document are
-> fictitious. Real event data (names, birthdays, years) lives only in the
-> private deploy repo (§10), never in the public code repo, README, or any
-> code example.
+> fictitious. Real event data (names, birthdays, years) is supplied at
+> deploy time and never lives in this repo, its README, or any code example.
 
 ---
 
@@ -59,8 +58,8 @@ a subscribable, self-hosted feed. That's the gap this fills.
 - **Multi-tenant privacy:** unguessable secret token per user/family in the
   URL path.
 - **Distribution:** open source, MIT, hosted at **forklabs.cc**.
-- **Repo split:** public code repo + private deploy repo, mirroring FluxTube
-  (confirmed against the real, public `fluxtube` repo — see §10).
+- **Repo split:** this repo holds the engine; deployment, with the real
+  configs, happens outside it (see §10).
 - **Observability:** correctness (wrong dates) and availability (feed down)
   both need proactive alerting, not "discovered by missing an event."
 
@@ -124,7 +123,7 @@ and doesn't collide with "window" as used elsewhere for polling/cache
 windows.
 
 ```yaml
-# events.yaml (private deploy repo — fictitious example below)
+# events.yaml (supplied at deploy time — fictitious example below)
 calendar: umm_al_qura # required; selects the HijriCalendarProvider
 
 occurrence_range:
@@ -164,54 +163,36 @@ the ICS-generation unit tests (§13).
 
 Given the repo split in §10, the answer falls out naturally:
 
-- The **public code repo** contains zero real data — just the generic
-  Worker engine, the `HijriCalendarProvider` interface, the default
-  `umm_al_qura` provider, tests, and the fictitious `examples/` config.
-- The **private deploy repo** contains one YAML file per person/family
-  (e.g. `config/layla.yaml`, `config/family-anniversaries.yaml`), each with
-  its own `calendar`, `occurrence_range`, `events`, and a `token:` field.
-- A `token:` field inside each person's file (rather than a separate mapping
-  file) — one file per person, nothing extra to keep in sync.
-- At build/deploy time, the private repo's config is bundled into the Worker
+- **This repo** contains zero real data — just the generic Worker engine,
+  the `HijriCalendarProvider` interface, the default `umm_al_qura` provider,
+  tests, and the fictitious `examples/` config.
+- **The deployment** supplies one YAML file per person/family, each with its
+  own `calendar`, `occurrence_range`, `events`, and a `token:` field — one
+  file per person, nothing extra to keep in sync.
+- At build/deploy time, those configs are bundled into the Worker
   (consistent with the "static file, redeploy to update" decision — no KV
   needed for v1). This keeps real names, birthdays, and tokens entirely out
-  of the public repo's git history, forever, by construction — not by
-  discipline.
+  of this repo's git history, forever, by construction — not by discipline.
 
-## 10. Repo structure — verified against the real FluxTube repos
+## 10. Repo structure
 
-I read the actual public `fluxtube` repo (`CLAUDE.md`, `docs/setup.md`,
-full tree) to ground this rather than approximate it. `fluxtube-deploy` and
-`forklabs-cc` are private and I couldn't read them directly — the deploy-repo
-shape below is reconstructed from what FluxTube's own public `CLAUDE.md`
-documents about its deploy companion, which is thorough enough to work from.
-If you can make `fluxtube-deploy` or `forklabs-cc` readable to me, I'll
-true this section up exactly.
+The pattern:
 
-**FluxTube's actual pattern** (confirmed):
-
-- Public repo holds: Worker/dashboard source, tests, Terraform _module_
-  (not the environment), docs, release-please, GitHub Actions for
-  typecheck/lint/test/audit + `terraform fmt/validate` + release-please +
-  a `notify-deploy.yml` that fires a `repository_dispatch` to the deploy repo
-  on `release: published`.
-- Public repo's `wrangler.toml` ships with **placeholder** resource IDs
-  (`00000000-…` D1 UUID, `fluxtube-placeholder-*` R2 bucket) — Terraform
-  sets the real bindings; nothing real is ever committed to the public repo.
-- Public repo holds exactly **one secret**: a fine-scoped PAT
-  (`DEPLOY_DISPATCH_TOKEN`) that can only fire the dispatch — compromising it
-  lets someone redeploy already-released code, nothing more.
-- Private deploy repo holds: real Cloudflare account ID, Worker secrets,
-  `deploy-on-release.yml` (consumes the dispatch, runs `terraform apply` +
-  `wrangler deploy`), a `terraform-apply.yml` manual dispatch entrypoint, ops
-  scripts that talk to the password manager, and an operator runbook
-  (`TODO.md`, `docs/bootstrap.md`, etc).
+- This repo holds the Worker source, tests, the Terraform _module_ (not an
+  environment), docs, release-please, and CI that needs no credentials:
+  typecheck/lint/test/audit + `terraform fmt/validate`.
+- `wrangler.toml` ships with **placeholder** values; the real ones are
+  supplied at deploy time, so nothing real is ever committed here.
+- On a release, `release-please.yml` fires a `repository_dispatch` at the
+  repository named in the `DEPLOY_TARGET_REPO` secret. The only credential
+  this repo holds is the fine-scoped `DEPLOY_DISPATCH_TOKEN` that fires it.
+- Deployment (Terraform environment and state, real configs, the deploy
+  pipeline) happens outside this repo. `docs/architecture.md` describes what
+  a deploy does.
 - Versioning via **release-please** reading Conventional Commits — the
   release, not the merge to `main`, is what triggers deployment.
 
-**Applying that pattern here:**
-
-**`hijri-cadence`** (public, MIT) — the engine:
+**`hijri-cadence`** — the engine:
 
 ```
 .
@@ -223,7 +204,7 @@ true this section up exactly.
 │   ├── pr-checks.yml          # typecheck + lint + test + audit
 │   ├── terraform-check.yml    # fmt -check + validate
 │   ├── release-please.yml     # push to main → release PR
-│   └── notify-deploy.yml      # release published → dispatch to deploy repo
+│   └── notify-deploy.yml      # manual re-dispatch of an existing tag
 ├── docs/
 │   ├── architecture.md, setup.md
 ├── examples/
@@ -250,28 +231,6 @@ true this section up exactly.
         ├── ics.test.ts
         └── spot-check/
             └── aladhan.spotcheck.ts  # third-party validation, NOT run in CI (§13)
-```
-
-**`hijri-cadence-deploy`** (private) — your instance:
-
-```
-.
-├── config/
-│   ├── deploy.env                    # non-secret vars (route, account id)
-│   └── people/
-│       ├── layla.yaml                # real event data + token
-│       └── ...
-├── infrastructure/terraform/environments/production/
-│   ├── main.tf, variables.tf, terraform.tfvars, backend.hcl
-├── .github/workflows/
-│   ├── deploy-on-release.yml         # consumes repository_dispatch
-│   └── terraform-apply.yml           # manual workflow_dispatch
-├── scripts/
-│   ├── sync-github-secrets.sh        # Bitwarden → GitHub Secrets/Variables
-│   ├── sync-worker-secrets.sh        # Bitwarden → wrangler secret put
-│   └── bootstrap-local-tf.sh
-├── Makefile                          # §12
-└── TODO.md, docs/bootstrap.md        # operator runbook
 ```
 
 ## 11. Local ICS generation (v1 requirement)
@@ -313,36 +272,8 @@ events:
     reminder_days_before: []
 ```
 
-**Makefile** — for the private deploy repo, following the
-`infra-core-domains` philosophy of "every local operation goes through
-`make`, nothing memorized." As noted above, I don't have the actual file, so
-this is a best-effort target list, not a mirror:
-
-```makefile
-.PHONY: help setup secrets deploy dev test lint ical-local spot-check clean destroy
-
-help:            ## List available targets
-setup:           ## Install deps (pnpm install), verify tool versions
-secrets:         ## Pull secrets/vars from Bitwarden → GitHub Secrets/Variables + wrangler
-dev:             ## Run the Worker locally (wrangler dev) against local config
-deploy:          ## terraform apply + wrangler deploy — requires CONFIRM=1
-test:            ## Unit tests + golden-vector conversion checks + lint
-lint:            ## eslint + prettier --check + terraform fmt -check
-ical-local:      ## Generate a local .ics — CONFIG=examples/events.example.yaml OUT=out.ics
-spot-check:      ## Cross-check golden vectors against the Aladhan API (network; not CI-gated, §13)
-clean:           ## Remove build artifacts, local .ics output, caches
-destroy:         ## Tear down deployed Worker + DNS — requires CONFIRM=1
-```
-
-`secrets` follows the confirmed Bitwarden pattern from FluxTube: Hidden
-fields (API tokens, Healthchecks.io ping URL) → `wrangler secret put` /
-GitHub Secrets; Text fields (non-sensitive config) → GitHub Variables /
-`wrangler.toml` vars, via `sync-github-secrets.sh` / `sync-worker-secrets.sh`
-naming (matching FluxTube's confirmed script names).
-
-**Please share the real `infra-core-domains` Makefile** if you want target
-names, ordering, `.PHONY` conventions, and help-text formatting matched
-exactly instead of approximated.
+**Makefile** — every local operation in this repo is a `make` target;
+`make help` lists them, and the README documents the same set.
 
 ## 13. Testing: unit tests, golden spot checks, and third-party validation
 
@@ -383,9 +314,7 @@ Three tiers, deliberately separated by network dependency:
 - **Deliberately not part of `pnpm test` / `pr-checks.yml`** — it depends on
   an external service being up, matching FluxTube's stated convention of "no
   live network calls in CI." Instead it's a `make spot-check` target, runnable
-  on demand, and a candidate for a low-frequency (e.g. weekly)
-  `workflow_dispatch`/scheduled Action in the deploy repo — informational,
-  not PR-blocking.
+  on demand — informational, never PR-blocking.
 
 ## 14. Observability & alerting
 
@@ -425,12 +354,11 @@ Neither blocks v1.
 - [ ] Landing webpage on forklabs.cc: what the tool is, the moon-sighting
       disclaimer, link to the public repo, self-hosting instructions
 - [ ] Public repo README + `examples/events.example.yaml`
-- [ ] Private deploy repo scaffolded with real config
+- [ ] A deployment with real config
 
 ## 17. Suggested next step
 
 With §7–§14 settled, this is scaffoldable in Claude Code in one or two
 passes: public engine repo first (provider interface, Umm al-Qura provider,
-feed handler, local CLI, three-tier tests, CI), then the private deploy repo
-(Makefile, Terraform/DNS, real config, Healthchecks.io wiring) — same shape
-as the FluxTube scaffolding prompt already in use.
+feed handler, local CLI, three-tier tests, CI), then a deployment
+(Terraform environment, DNS, real config, Healthchecks.io wiring).

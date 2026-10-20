@@ -82,9 +82,9 @@ losing it is the threat model to plan for.
 
 ## Config bundling: build-time `--define`
 
-Real configs never live in this repo. The deploy companion holds one
-YAML file per person or family (the event config plus a `token:` field)
-and bundles them into the Worker at deploy time:
+Real configs never live in this repo. A deployment supplies one YAML file
+per person or family (the event config plus a `token:` field) and bundles
+them into the Worker at deploy time:
 
 1. `bundle-configs --dir <people dir> --out configs.json`
    (`worker/src/bundle-cli.ts`, also `make bundle-configs`):
@@ -110,9 +110,8 @@ Trade-offs:
 
 - **No runtime state.** No D1, KV, or Durable Objects; the Worker is a
   pure function of its bundle.
-- **Config edits require a redeploy.** In the companion, merging a config
-  change redeploys the currently released version of this repo. Code
-  changes deploy when a release is cut here. A UI-driven config flow is
+- **Config edits require a redeploy** of the currently released version
+  of this repo. Code changes deploy when a release is cut here. A UI-driven config flow is
   v2 backlog.
 
 ## Scale limits
@@ -177,27 +176,21 @@ network calls), but it's easy to run on demand.
   fields `ts`, `level`, `event`, `version`, `instance`. The token is
   hashed; the raw token is never logged.
 
-## Split-repo pattern
+## Deploying
 
-The public source repo (this one) holds the engine: Worker code, tests,
-the Terraform _module_, docs, and release-please. It holds exactly **one
-credential**: `DEPLOY_DISPATCH_TOKEN`, a fine-scoped PAT that can only fire
-the `repository_dispatch` event. A leaked token lets an attacker
-redeploy an already-released version, nothing more. The dispatch
-destination comes from a second environment secret, `DEPLOY_TARGET_REPO`,
-which grants nothing and is secret only so no workflow names it.
+This repo holds the engine: Worker code, tests, the Terraform _module_,
+docs, and release-please. Deployment happens outside it. The repo's CI
+holds exactly **one credential**: `DEPLOY_DISPATCH_TOKEN`, a fine-scoped
+PAT that can only fire the `repository_dispatch` event. With the payload
+checks below, a leaked token lets an attacker redeploy an
+already-released version, nothing more. The dispatch destination comes
+from a second environment secret, `DEPLOY_TARGET_REPO`, which grants
+nothing and is secret only so no workflow names it.
 
-The private deploy companion holds:
-
-- per-family configs (committed there)
-- non-secret operational values (hostname, account/zone IDs, cron
-  schedule, the Healthchecks ping URL)
-- the Terraform environment and state backend config
-- credential-sync scripts
-- the workflow that runs the deploy
-
-Its only secrets are the Cloudflare API token and the R2 state-bucket
-keys.
+A deployment supplies the per-family configs, the operational values
+(hostname, account and zone IDs, cron schedule, the Healthchecks ping
+URL), the Terraform environment and its state backend, and a Cloudflare
+API token scoped to the Worker, its route and DNS.
 
 Ownership inside a deploy:
 
@@ -214,26 +207,25 @@ Ownership inside a deploy:
   deploy passes as `--var`. It deploys to the Terraform-managed Worker via
   `--name`.
 
-Deploy chains:
+Deploy chain:
 
 ```
-this repo                                deploy companion
-─────────                                ────────────────
 commit → main
 release-please.yml opens release PR
 merge release PR
   ├── release-please creates tag + release
-  └── dispatch repository_dispatch  →  deploy workflow
-                                          ├── bundle-configs (validate)
-                                          ├── terraform apply
-                                          ├── wrangler deploy --name <script>
-                                          │     (CONFIGS_JSON + VERSION baked in)
-                                          └── smoke test the live hostname
-
-                                        merge a config change
-                                          └── same workflow, at the latest
-                                              released tag of this repo
+  └── repository_dispatch → DEPLOY_TARGET_REPO, payload { version, sha, actor, ref }
+        the receiver, outside this repo:
+        ├── validate: ref is a vX.Y.Z tag, version matches, checkout == sha
+        ├── bundle-configs (validate)
+        ├── terraform apply
+        ├── wrangler deploy --name <script>
+        │     (CONFIGS_JSON + VERSION baked in)
+        └── smoke test the live hostname
 ```
+
+A config change alone redeploys the latest released tag through the same
+steps.
 
 `GITHUB_TOKEN` doesn't fire downstream workflows (GitHub's anti-recursion
 safeguard), so the dispatch is chained _inside_ `release-please.yml`

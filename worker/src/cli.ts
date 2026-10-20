@@ -10,8 +10,8 @@
  *   pnpm --filter @hijri-cadence/worker generate:local \
  *     -- --config ../examples/events.example.yaml --out /tmp/out.ics
  *
- * Or via the deploy repo's Makefile:
- *   make ical-local CONFIG=examples/events.example.yaml OUT=out.ics
+ * Or via the Makefile:
+ *   make ical CONFIG=examples/events.example.yaml OUT=out.ics
  */
 
 // Provider self-registration

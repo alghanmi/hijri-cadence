@@ -2,8 +2,8 @@
 #
 # Fictitious example used by the ICS-generation unit tests AND by
 # `pnpm generate:local` / `make ical-local`. Copy this file, replace with
-# real events, and keep the real copy OUT of this repo — it belongs in
-# the private deploy companion (hijri-cadence-deploy/config/people/*.yaml).
+# real events, and keep the real copy OUT of this repo — real configs are
+# supplied at deploy time.
 
 # Which HijriCalendarProvider to use. v1 ships only "umm_al_qura".
 calendar: umm_al_qura
