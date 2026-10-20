@@ -181,9 +181,11 @@ network calls), but it's easy to run on demand.
 
 The public source repo (this one) holds the engine: Worker code, tests,
 the Terraform _module_, docs, and release-please. It holds exactly **one
-secret**: `DEPLOY_DISPATCH_TOKEN`, a fine-scoped PAT that can only fire
+credential**: `DEPLOY_DISPATCH_TOKEN`, a fine-scoped PAT that can only fire
 the `repository_dispatch` event. A leaked token lets an attacker
-redeploy an already-released version, nothing more.
+redeploy an already-released version, nothing more. The dispatch
+destination comes from a second environment secret, `DEPLOY_TARGET_REPO`,
+which grants nothing and is secret only so no workflow names it.
 
 The private deploy companion holds:
 
