@@ -7,7 +7,7 @@
  * calls in CI" rule. Runnable on demand via:
  *
  *   pnpm --filter @hijri-cadence/worker spot-check
- *   # or from the deploy repo:
+ *   # or:
  *   make spot-check
  *
  * What it does: takes the same golden-vector table from Tier 1

@@ -20,21 +20,19 @@ This is the **public source repo**. It holds:
 - the Terraform _module_
 - the release flow
 
-Production deploys, including all real event data, happen in a separate
-**private deploy companion** repo that holds per-person configs,
-account-specific values, and the credentials they resolve from.
+Deployment happens outside this repository. Per-person configs,
+account-specific values and the credentials they resolve from are supplied
+at deploy time and never committed here.
 
 ## Architecture
 
 ```
-public (this repo)                     private deploy companion
-  worker/src/  ─────────────┐            config/people/*.yaml  (real events + tokens)
-  infrastructure/tf module ─┤            config/deploy.env     (non-secret values)
-  release-please            │            GitHub env secrets    (CF token, R2 keys)
-       ↓                    │            deploy workflow
-  merge release PR          │
-       ↓                    │
-  release-please.yml ──repository_dispatch──→ deploy workflow
+this repo
+  worker/src/, infrastructure/terraform module, release-please
+       ↓
+  merge release PR
+       ↓
+  release-please.yml ──repository_dispatch──→ DEPLOY_TARGET_REPO (deployment, outside this repo)
                                               ├── bundle-configs (validate + bundle)
                                               ├── terraform apply
                                               ├── wrangler deploy --name <script>
@@ -42,10 +40,9 @@ public (this repo)                     private deploy companion
                                               └── smoke test the live hostname
 ```
 
-The deploy workflow checks out both repos (the companion at HEAD; this
-repo at the released tag) and stitches them at deploy time. Merging a
-config change in the companion runs the same workflow against the latest
-release. `notify-deploy.yml` here is only a manual escape hatch.
+A config change alone redeploys the latest release through the same steps.
+`notify-deploy.yml` here is only a manual escape hatch.
+`docs/architecture.md` → _Deploying_ has the details.
 
 Ownership split: **Terraform** owns the Worker entity via the code-less
 `cloudflare_worker` resource (observability, workers.dev off), the custom
@@ -79,7 +76,7 @@ anything (see the global dependency-currency rule).
   `bundle.ts` / `bundle-cli.ts`
 - **IaC:** Terraform, Cloudflare provider v5. Resource names are
   prefixed `hijri-cadence-<instance_id>`. The module lives here; the
-  environment + state live in the companion.
+  environment + state live with the deployment.
 - **CI/CD:** GitHub Actions
 - **Versioning & releases:** release-please reading Conventional Commits
 - **Testing:** Vitest with `@cloudflare/vitest-pool-workers` (vitest held
@@ -102,7 +99,7 @@ anything (see the global dependency-currency rule).
 │   ├── workflows/
 │   │   ├── pr-checks.yml               # typecheck, lint, format, Tier 1 tests, bundle dry-run, audit
 │   │   ├── terraform-check.yml         # terraform fmt -check + validate
-│   │   ├── release-please.yml          # release PR; on release → dispatch to the companion
+│   │   ├── release-please.yml          # release PR; on release → dispatch to DEPLOY_TARGET_REPO
 │   │   └── notify-deploy.yml           # manual workflow_dispatch: re-dispatch an existing tag
 │   └── dependabot.yml
 ├── docs/
@@ -161,9 +158,9 @@ anything (see the global dependency-currency rule).
   event data, no tokens. `wrangler.toml` holds only local-dev defaults.
 - **Terraform:** `make tf-check` clean at all times (CI enforces fmt +
   validate). Outputs read attributes of created resources, not inputs.
-- **Work tracking:** open, deferred, and operator work is tracked as
-  issues in the private companion. Public PRs, commits, and issues never
-  reference those issues, the companion's name, or its URL.
+- **Work tracking:** operational and security work is tracked outside
+  this repository. Issues here describe symptoms only, and PRs, commits
+  and issues never reference anything outside this repository.
 
 ## Public-side CI
 
@@ -176,27 +173,18 @@ anything (see the global dependency-currency rule).
 
 Auth surface: this repo holds **one credential** (in its `production`
 environment), `DEPLOY_DISPATCH_TOKEN`: a fine-grained PAT with
-Contents: read & write on the companion repo only, which is what gates
+Contents: read & write on the target repository only, which is what gates
 `repository_dispatch`. A leak lets an attacker redeploy already-released
 code, nothing more. `DEPLOY_TARGET_REPO`, the dispatch destination, is
 also an environment secret: it grants nothing, and is a secret only so no
 workflow or log spells the destination out.
 
-## What lives in the deploy companion (not here)
+## What does not live here
 
-- `config/people/*.yaml`: real event data + tokens (committed there,
-  validated in its CI)
-- `config/deploy.env`: non-secret values: account + zone IDs, hostname,
-  `instance_id`, state bucket/key, cron schedule, log level, and the
-  **Healthchecks.io ping URL** (`TF_VAR_heartbeat_url`, deliberately not
-  a secret)
-- The Terraform environment + lock file
-- The deploy workflow (dispatch + config-change triggers)
-- Credential sync (password manager → GitHub environment secrets: the CF
-  API token and R2 keys) and the local Terraform bootstrap script
-- Its own `Makefile` for all operations (secrets, plan/apply, deploy,
-  verify, validate, person scaffolding)
-- Operator runbook and the issue tracker for this project
+Real per-person configs and tokens, account and zone IDs, the Terraform
+environment and state, the deploy pipeline, credential tooling and the
+operator runbook all live with the deployment, outside this repository. If
+a task here seems to need any of them, it belongs there.
 
 There are **no Worker secrets**: the only bindings are three plain-text vars
 that the deploy passes to `wrangler deploy --var`.
