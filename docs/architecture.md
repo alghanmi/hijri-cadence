@@ -202,10 +202,13 @@ Ownership inside a deploy:
   `[observability]` table mirroring Terraform's values: every script upload
   resets omitted observability settings to off, so both sides must send the
   same thing.
-- **wrangler** owns the code bundle, the compatibility date/flags, and the
-  plain-text vars (`INSTANCE_ID`, `LOG_LEVEL`, `HEARTBEAT_URL`), which the
-  deploy passes as `--var`. It deploys to the Terraform-managed Worker via
-  `--name`.
+- **wrangler** owns the code bundle, the compatibility date/flags, the
+  plain-text vars (`INSTANCE_ID`, `LOG_LEVEL`), which the deploy passes as
+  `--var`, and the one Worker secret, `HEARTBEAT_URL`. A Healthchecks.io
+  ping URL lets whoever holds it ping the check, so it is set with
+  `wrangler secret put` (after `wrangler deploy`, since a secret cannot
+  share its name with a var), never as a `--var`. It deploys to the
+  Terraform-managed Worker via `--name`.
 
 Deploy chain:
 

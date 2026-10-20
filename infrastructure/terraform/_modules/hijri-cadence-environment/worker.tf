@@ -6,8 +6,9 @@
 #     trigger. `cloudflare_worker` carries no code, so Terraform never reads
 #     or uploads the bundle.
 #   - wrangler owns the code, compatibility date/flags (worker/wrangler.toml),
-#     and the plain-text vars (INSTANCE_ID, LOG_LEVEL, HEARTBEAT_URL), which
-#     the deploy passes with `wrangler deploy --var`.
+#     the plain-text vars (INSTANCE_ID, LOG_LEVEL), which the deploy passes
+#     with `wrangler deploy --var`, and the HEARTBEAT_URL secret
+#     (`wrangler secret put`).
 resource "cloudflare_worker" "hijri_cadence" {
   account_id = var.cloudflare_account_id
   name       = local.worker_name

@@ -34,9 +34,10 @@ CONFIGS_JSON = "\"{}\""
 # cron_schedule / cron_enabled on every deploy.
 
 # ── Vars ──────────────────────────────────────────────────────────────────────
-# Production vars (INSTANCE_ID, LOG_LEVEL, HEARTBEAT_URL) are passed by the
-# deploy as `wrangler deploy --var KEY:VALUE`. For local `wrangler dev`, put
-# placeholder values in `.dev.vars` (see .dev.vars.example).
+# Production vars (INSTANCE_ID, LOG_LEVEL) are passed by the deploy as
+# `wrangler deploy --var KEY:VALUE`. HEARTBEAT_URL is a Worker secret
+# (`wrangler secret put HEARTBEAT_URL`): a ping URL is a credential. For local
+# `wrangler dev`, put placeholder values in `.dev.vars` (see .dev.vars.example).
 
 # ── Observability ─────────────────────────────────────────────────────────────
 # MUST mirror `observability` on `cloudflare_worker` in the Terraform module
