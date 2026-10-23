@@ -217,9 +217,10 @@ discussion:
 - Healthchecks.io HTTP API: https://healthchecks.io/docs/http_api/
 - release-please: https://github.com/googleapis/release-please
 
-<!-- shared-conventions-public: v2 (2026-10-18). One source, copied verbatim into
+<!-- shared-conventions-public: v3 (2026-10-23). One source, copied verbatim into
      every public repo's CLAUDE.md. Edit the source and re-sync; never edit a
-     copy in place. Repo-specific rules elsewhere in this file override it. -->
+     copy in place. Repo-specific rules elsewhere in this file override it.
+     v3: adds "Documentation: the README is the manual". -->
 
 ## Shared conventions (public repository)
 
