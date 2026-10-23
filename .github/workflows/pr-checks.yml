@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: README covers every make target and every link resolves
+        run: make docs-check
+
       - name: Type check
         run: pnpm --filter @hijri-cadence/worker typecheck
 
