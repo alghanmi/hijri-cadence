@@ -162,6 +162,10 @@ anything (see the global dependency-currency rule).
   this repository. Issues here describe symptoms only, and PRs, commits
   and issues never reference anything outside this repository.
 
+## Documentation
+
+`README.md` is the manual (shared rule _Documentation: the README is the manual_ below): how it works, the config fields, every `make` target, and the self-hosting deploy steps in general terms. When a change adds a target, a config field, a binding, a secret or a deploy step, update the README in the same PR, and keep `docs/architecture.md` → _Deploying_ in step with it. `make check` and `pr-checks.yml` run `make docs-check`.
+
 ## Public-side CI
 
 | Workflow              | Trigger                                   | What                                                               |
@@ -213,9 +217,10 @@ discussion:
 - Healthchecks.io HTTP API: https://healthchecks.io/docs/http_api/
 - release-please: https://github.com/googleapis/release-please
 
-<!-- shared-conventions-public: v2 (2026-10-18). One source, copied verbatim into
+<!-- shared-conventions-public: v3 (2026-10-23). One source, copied verbatim into
      every public repo's CLAUDE.md. Edit the source and re-sync; never edit a
-     copy in place. Repo-specific rules elsewhere in this file override it. -->
+     copy in place. Repo-specific rules elsewhere in this file override it.
+     v3: adds "Documentation: the README is the manual". -->
 
 ## Shared conventions (public repository)
 
@@ -280,6 +285,23 @@ that they did not already know?"
 - **CI needs no secret beyond what the release mechanism requires**, and
   the release mechanism's destination is itself a secret: a dispatch target
   is read from `secrets.*`, never written into a workflow.
+
+### Documentation: the README is the manual
+
+- **The README runs the project from a fresh clone.** It covers what the
+  project does, its architecture (a Mermaid diagram wherever a flow is easier
+  to see than to read), local development, every `make` target or root
+  `package.json` script, and how a self-hosting operator deploys it: the
+  resources, the secrets to provide, the order. It describes any deployment
+  in general terms, never ours.
+- **Every change reviews the README.** Before opening a PR, read the README
+  sections the change touches against the diff. A new, renamed or removed
+  target, script, variable, secret, workflow or deploy step updates the
+  README in the same PR, never in a follow-up.
+- **`docs-check` enforces the mechanical half** (`make docs-check`, or
+  `pnpm docs:check` where there is no Makefile). It fails when a documented
+  target or root script is missing from the README, or a relative link points
+  at nothing. CI runs it. Only reading catches a stale procedure.
 
 ### Git and pull requests
 

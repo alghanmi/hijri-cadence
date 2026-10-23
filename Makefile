@@ -1,4 +1,4 @@
-.PHONY: help install check typecheck lint format format-check test dev ical spot-check validate-configs bundle-configs tf-check
+.PHONY: help install check typecheck lint format format-check test dev ical spot-check validate-configs bundle-configs tf-check docs-check
 
 CYAN  := \033[0;36m
 RED   := \033[0;31m
@@ -13,7 +13,7 @@ help: ## Show this help message
 install: ## Install workspace dependencies (frozen lockfile)
 	@pnpm install --frozen-lockfile
 
-check: typecheck lint format-check test ## Everything CI gates on: typecheck, lint, format, Tier 1 tests
+check: typecheck lint format-check test docs-check ## Everything CI gates on: typecheck, lint, format, Tier 1 tests, docs-check
 
 typecheck: ## TypeScript type check
 	@$(WORKER) typecheck
@@ -50,6 +50,9 @@ validate-configs: ## Validate a directory of per-person configs — DIR=<path>
 bundle-configs: ## Write the deploy bundle — DIR=<path> OUT=<json>
 	@if [ -z "$(DIR)" ] || [ -z "$(OUT)" ]; then echo "$(RED)Usage: make bundle-configs DIR=<path> OUT=<file.json>$(RESET)"; exit 1; fi
 	@$(WORKER) -s bundle-configs --dir "$(abspath $(DIR))" --out "$(abspath $(OUT))"
+
+docs-check: ## Fail if README.md misses a make target or links to a path that does not exist
+	@./scripts/docs-check.sh
 
 tf-check: ## terraform fmt -check + validate on the module (no credentials needed)
 	@terraform -chdir=infrastructure/terraform fmt -check -recursive
