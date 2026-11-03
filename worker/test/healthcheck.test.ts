@@ -21,7 +21,10 @@ describe('scheduledHealthcheck', () => {
     const fetchMock = vi.fn(async () => new Response('OK'));
     vi.stubGlobal('fetch', fetchMock);
     await scheduledHealthcheck(makeLogger(), 'https://hc.example/abc');
-    expect(fetchMock).toHaveBeenCalledWith('https://hc.example/abc', { method: 'POST' });
+    expect(fetchMock).toHaveBeenCalledWith('https://hc.example/abc', {
+      method: 'POST',
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('pings /fail when the provider throws', async () => {
@@ -33,6 +36,20 @@ describe('scheduledHealthcheck', () => {
     const logger = makeLogger();
     await scheduledHealthcheck(logger, 'https://hc.example/abc');
     expect(logger.errors).toContain('healthcheck.error');
-    expect(fetchMock).toHaveBeenCalledWith('https://hc.example/abc/fail', { method: 'POST' });
+    expect(fetchMock).toHaveBeenCalledWith('https://hc.example/abc/fail', {
+      method: 'POST',
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  it('logs and returns when the heartbeat endpoint hangs past the timeout', async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const warnings: string[] = [];
+    const logger = { ...makeLogger(), warn: (event: string) => warnings.push(event) };
+    await expect(scheduledHealthcheck(logger, 'https://hc.example/abc')).resolves.toBeUndefined();
+    expect(warnings).toContain('healthcheck.heartbeat_error');
   });
 });
