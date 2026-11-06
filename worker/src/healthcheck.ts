@@ -83,7 +83,8 @@ export async function scheduledHealthcheck(
 
   const url = passed ? heartbeatUrl : `${heartbeatUrl}/fail`;
   try {
-    const resp = await fetch(url, { method: 'POST' });
+    // A hung endpoint must not hold the cron invocation open.
+    const resp = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(10_000) });
     if (!resp.ok) {
       logger.warn('healthcheck.heartbeat_bad_status', { status: resp.status });
     }
