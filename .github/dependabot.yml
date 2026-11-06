@@ -1,3 +1,8 @@
+# Monthly, grouped: one pull request per ecosystem and directory carries every
+# minor and patch update; a major version arrives as its own pull request, to
+# read on its own. Security updates are separate and immediate: they need
+# Dependabot security updates on (Settings -> Code security) and ignore the
+# schedule, the groups and the update-types rules below.
 version: 2
 updates:
   # Dependabot for pnpm workspaces: a single entry at `/` scans every
@@ -11,14 +16,14 @@ updates:
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
-      interval: 'weekly'
-      day: 'monday'
+      interval: 'monthly'
     open-pull-requests-limit: 5
     commit-message:
       prefix: 'chore(deps)'
     groups:
-      dev-dependencies:
-        dependency-type: 'development'
+      minor-and-patch:
+        update-types: ['minor', 'patch']
+      # Majors of these move together, in one pull request.
       typescript-eslint:
         patterns:
           - '@typescript-eslint/*'
@@ -39,17 +44,21 @@ updates:
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'weekly'
-      day: 'monday'
+      interval: 'monthly'
     open-pull-requests-limit: 5
     commit-message:
       prefix: 'chore(actions)'
+    groups:
+      minor-and-patch:
+        update-types: ['minor', 'patch']
 
   - package-ecosystem: 'terraform'
     directory: '/infrastructure/terraform/_modules/hijri-cadence-environment'
     schedule:
-      interval: 'weekly'
-      day: 'monday'
+      interval: 'monthly'
     open-pull-requests-limit: 5
     commit-message:
       prefix: 'chore(terraform)'
+    groups:
+      minor-and-patch:
+        update-types: ['minor', 'patch']
