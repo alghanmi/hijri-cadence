@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/alghanmi/hijri-cadence/compare/v0.2.1...v0.3.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* the module no longer has the instance_id or prefix outputs. A root that reads module.<name>.instance_id or .prefix must drop those references before it upgrades; worker_name carries the same name as prefix did.
+
+### Bug Fixes
+
+* time out the heartbeat ping, drop module outputs that echo inputs, require Terraform 1.10 ([#50](https://github.com/alghanmi/hijri-cadence/issues/50)) ([708a16b](https://github.com/alghanmi/hijri-cadence/commit/708a16b6778f59b05721d90cdc03cea4850c38e9))
+
 ## [0.2.1](https://github.com/alghanmi/hijri-cadence/compare/v0.2.0...v0.2.1) (2026-09-25)
 
 
